@@ -6,13 +6,20 @@ import Dashboard from "./pages/Dashboard";
 
 function App() {
   return (
-    <div>
-      <nav className="p-4 bg-gray-800 text-white flex justify-between">
-        <Link to="/">Home</Link>
-        <div className="space-x-4">
-          <Link to="/store">Storefront</Link>
-          <Link to="/dashboard">Dashboard</Link>
-        </div>
+    <div className="w-full">
+      <nav className="p-4 bg-gray-100 flex justify-between">
+        <Link className="p-3 bg-gray-200 rounded-2xl space-x-4"
+          to="/">
+            Home
+        </Link>
+        <Link className="p-3 bg-gray-200 rounded-2xl space-x-4"
+          to="/store">
+           My Store 
+        </Link>
+        <Link className="p-3 bg-gray-200 rounded-2xl space-x-4"
+          to="/dashboard">
+            Dashboard
+        </Link>
       </nav>
 
       <main className="p-6">

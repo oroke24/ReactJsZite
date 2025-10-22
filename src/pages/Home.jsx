@@ -1,3 +1,7 @@
 export default function Home() {
-  return <h1 className="text-3xl">Welcome to Zite Builder 🚀</h1>;
+  return (
+  <div>
+    <h1 className="text-xl">Welcome to Zite Builder 🚀</h1>
+  </div>
+  );
 }
