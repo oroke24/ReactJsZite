@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { registerUser } from "../lib/auth";
+import { addBusiness, setUserProfile } from "../lib/firestore";
 
 export default function Register() {
   const [email, setEmail] = useState("");
@@ -12,8 +13,17 @@ export default function Register() {
     e.preventDefault();
     setLoading(true);
     try {
-      await registerUser(email, password);
-      navigate("/dashboard");
+      const user = await registerUser(email, password);
+      // create a default business tied to the new user
+      const defaultBusiness = {
+        name: `${email.split("@")[0]}'s Shop`,
+        description: "Welcome to my store!",
+      };
+      const businessId = await addBusiness(defaultBusiness, user);
+      // persist primary business id on the user profile so other pages can find it
+      await setUserProfile(user.uid, { primaryBusinessId: businessId });
+      // navigate to business setup so the user can edit details
+      navigate("/business-setup");
     } catch (err) {
       console.error(err);
       alert("Registration failed. Try again.");
