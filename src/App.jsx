@@ -24,7 +24,7 @@ export default function App() {
     <div className="w-full min-h-screen flex flex-col">
       {/* --- Navigation --- */}
       <nav className="p-4 bg-gray-100 flex justify-between items-center shadow-md">
-        <div className="w-full flex gap-3 items-center">
+        <div className="w-full flex gap-3 items-center justify-end">
           {!user ? (
             <>
               <Link to="/login" className="text-blue-600 hover:underline">
@@ -66,8 +66,8 @@ export default function App() {
         <Routes>
           {/* Public pages */}
           <Route path="/" element={<Home />} />
-          <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
-          <Route path="/register" element={!user ? <Register /> : <Navigate to="/" replace />} />
+          <Route path="/login" element={!user ? <Login /> : <Navigate to="/account" replace />} />
+          <Route path="/register" element={!user ? <Register /> : <Navigate to="/account" replace />} />
 
           {/* Protected route */}
           <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/" replace />} />
