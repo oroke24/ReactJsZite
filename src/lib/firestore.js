@@ -1,31 +1,42 @@
-import { collection, addDoc, getDocs, query, where, doc, getDoc } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  getDoc,
+  query,
+  where,
+  doc,
+  updateDoc,
+} from "firebase/firestore";
 import { db } from "../firebaseConfig";
 
-// --- Add a new business ---
-export async function addBusiness(businessData) {
+// --- Add a new business linked to user ---
+export async function addBusiness(businessData, user) {
   const ref = await addDoc(collection(db, "businesses"), {
     ...businessData,
-    createdAt: new Date()
+    ownerEmail: user.email,
+    ownerUid: user.uid,
+    createdAt: new Date(),
   });
   return ref.id;
 }
 
-// --- Get all businesses ---
-export async function getAllBusinesses() {
-  const snapshot = await getDocs(collection(db, "businesses"));
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+// --- Get all businesses for a specific user ---
+export async function getBusinessesByUser(uid) {
+  const q = query(collection(db, "businesses"), where("ownerUid", "==", uid));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 }
 
-// --- Get business by ID ---
+// --- Get a single business by ID ---
 export async function getBusinessById(id) {
   const ref = doc(db, "businesses", id);
   const snapshot = await getDoc(ref);
   return snapshot.exists() ? { id, ...snapshot.data() } : null;
 }
 
-// --- Get business by owner email ---
-export async function getBusinessByEmail(email) {
-  const q = query(collection(db, "businesses"), where("ownerEmail", "==", email));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+// --- Update business info ---
+export async function updateBusiness(businessId, updates) {
+  const ref = doc(db, "businesses", businessId);
+  await updateDoc(ref, updates);
 }
