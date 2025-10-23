@@ -7,12 +7,12 @@ Zite is a minimal Shopify-like app built with React and Firebase. Users register
 - Tech: React (Vite), React Router, Firebase (Auth, Firestore, Storage), Tailwind v4.
 - Auth: On registration, a default business is created and stored under `users/{uid}.primaryBusinessId`.
 - Data model (Firestore):
-	- `businesses/{businessId}` — business profile (name, description, contact fields)
+	- `businesses/{businessId}` — business profile (name, description, contact fields, optional backgroundColor for storefront, optional imageUrl)
 	- `businesses/{businessId}/items` — all sellable items (single unified collection)
-	- `businesses/{businessId}/collections` — collections with optional description
+	- `businesses/{businessId}/collections` — collections with optional description and backgroundColor (hex)
 	- `businesses/{businessId}/collections/{collectionId}/items/{itemId}` — membership docs (item belongs to collection)
 
-Items can belong to multiple collections via membership docs. The storefront renders sections per collection and lists its member items. Each collection can include an optional description that appears on the storefront.
+Items can belong to multiple collections via membership docs. The storefront renders sections per collection and lists its member items. Each collection can include an optional description and background color that appear on the storefront.
 
 ## Key routes
 
@@ -37,3 +37,5 @@ Note: The project has been fully refactored to an items-only model. Any legacy p
 - Preview build: `npm run preview`
 
 Ensure Firebase config is set in `src/firebaseConfig.js` and your Firestore/Storage security rules are aligned with the paths above.
+The business image (imageUrl) can be uploaded/updated/cleared from the Account page and displays on the Storefront header.
+Business and collection backgrounds are optional; clearing the color removes the field from Firestore.

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { deleteField } from "firebase/firestore";
 import { addCollection, deleteCollection, getCollections, getCollectionMembers, addCollectionMember, removeCollectionMember, updateCollection } from "../lib/firestore";
 import { getItems } from "../lib/items";
 
@@ -11,6 +12,8 @@ export default function CollectionsManager({ businessId }) {
   const [memberItems, setMemberItems] = useState(new Set());
   const [loading, setLoading] = useState(false);
   const [editIntro, setEditIntro] = useState("");
+  const [newColor, setNewColor] = useState("");
+  const [editColor, setEditColor] = useState("");
 
   const selectedCollection = useMemo(() => collections.find(c => c.id === selectedCollectionId) || null, [collections, selectedCollectionId]);
 
@@ -37,8 +40,9 @@ export default function CollectionsManager({ businessId }) {
       }
       const ids = await getCollectionMembers(businessId, selectedCollectionId, 'items');
       setMemberItems(new Set(ids));
-      const sel = collections.find(c => c.id === selectedCollectionId);
-      setEditIntro(sel?.description || "");
+  const sel = collections.find(c => c.id === selectedCollectionId);
+  setEditIntro(sel?.description || "");
+  setEditColor(sel?.backgroundColor || "");
     };
     loadMembership();
   }, [businessId, selectedCollectionId, collections]);
@@ -55,12 +59,14 @@ export default function CollectionsManager({ businessId }) {
     if (!newName.trim()) return;
     setLoading(true);
     try {
-      const payload = { name: newName.trim() };
+  const payload = { name: newName.trim() };
       const trimmed = newIntro.trim();
-      if (trimmed) payload.description = trimmed; // only include when non-empty
+  if (trimmed) payload.description = trimmed; // only include when non-empty
+  if (newColor && newColor !== '#ffffff') payload.backgroundColor = newColor;
       await addCollection(businessId, payload);
       setNewName("");
       setNewIntro("");
+  setNewColor("");
       await refreshCollections();
     } catch (e) {
       console.error(e);
@@ -74,7 +80,9 @@ export default function CollectionsManager({ businessId }) {
     if (!selectedCollectionId) return;
     setLoading(true);
     try {
-      await updateCollection(businessId, selectedCollectionId, { description: editIntro });
+      const updates = { description: editIntro };
+      updates.backgroundColor = editColor ? editColor : deleteField();
+      await updateCollection(businessId, selectedCollectionId, updates);
       await refreshCollections();
     } catch (e) {
       console.error(e);
@@ -117,9 +125,13 @@ export default function CollectionsManager({ businessId }) {
   return (
     <div>
       <div className="p-5 border rounded-lg bg-white shadow">
-        <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2">
+        <div className="mt-2 grid grid-cols-1 md:grid-cols-4 gap-2">
           <input className="border p-2 rounded w-full" placeholder="New collection name" value={newName} onChange={(e) => setNewName(e.target.value)} />
           <textarea className="border p-2 rounded w-full md:col-span-2" rows={1} placeholder="New collection description (optional)" value={newIntro} onChange={(e) => setNewIntro(e.target.value)} />
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-700">Background color</label>
+            <input type="color" className="w-10 h-10 p-0 border rounded" value={newColor || '#ffffff'} onChange={(e) => setNewColor(e.target.value)} />
+          </div>
           <div>
             <button className={`bg-green-600 text-white px-3 py-2 rounded ${loading ? 'opacity-50' : ''}`} onClick={create} disabled={loading}>Create</button>
           </div>
@@ -141,9 +153,16 @@ export default function CollectionsManager({ businessId }) {
         <div className="mt-6 grid grid-cols-1 gap-6">
           <div>
             <h3 className="font-semibold mb-2">Description for "{selectedCollection.name}"</h3>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-3">
               <textarea className="border p-2 rounded w-full" rows={2} placeholder="Write a short description for this collection" value={editIntro} onChange={(e) => setEditIntro(e.target.value)} />
-              <button className={`bg-blue-600 text-white px-3 py-2 rounded h-fit ${loading ? 'opacity-50' : ''}`} onClick={saveIntro} disabled={loading}>Save</button>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-gray-700">Background color</label>
+                  <input type="color" className="w-10 h-10 p-0 border rounded" value={editColor || '#ffffff'} onChange={(e) => setEditColor(e.target.value)} />
+                  <button type="button" className="text-sm text-gray-600 underline" onClick={() => setEditColor("")}>Clear</button>
+                </div>
+                <button className={`bg-blue-600 text-white px-3 py-2 rounded ${loading ? 'opacity-50' : ''}`} onClick={saveIntro} disabled={loading}>Save</button>
+              </div>
             </div>
           </div>
 

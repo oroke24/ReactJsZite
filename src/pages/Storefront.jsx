@@ -49,14 +49,24 @@ export default function Storefront() {
   }, [routeBusinessId, user]);
 
   return (
-    <div className="p-6">
+    <div className="p-6 min-h-screen" style={{ backgroundColor: business?.backgroundColor || 'transparent' }}>
       {!business && <h1 className="text-2xl">Storefront</h1>}
 
       {business && (
         <div>
-          <header className="mb-6">
-            <h1 className="text-3xl font-bold">{business.name}</h1>
-            <p className="text-gray-700">{business.description}</p>
+          <header className="mb-6 text-center">
+            <h1 className="text-3xl font-bold mb-4">{business.name}</h1>
+            {business.imageUrl && (
+              <div className="mb-4 max-w-4xl mx-auto">
+                <img
+                  src={business.imageUrl}
+                  alt={business.name}
+                  className="w-full h-48 object-cover rounded border"
+                  style={{ objectPosition: business.imagePosition || '50% 50%' }}
+                />
+              </div>
+            )}
+            <p className="text-gray-700 max-w-3xl mx-auto">{business.description}</p>
           </header>
 
           {/* Group by Collection: each collection shows its Items */}
@@ -66,7 +76,8 @@ export default function Storefront() {
               const colItems = member ? items.filter((it) => member.has(it.id)) : [];
               if (colItems.length === 0) return null;
               return (
-                <div key={col.id} className="mb-10">
+                <div key={col.id} className="mb-10 rounded" style={{ backgroundColor: col.backgroundColor || 'transparent' }}>
+                  <div className="p-4">
                   <h2 className="text-2xl font-semibold">{col.name}</h2>
                   {col.description && (
                     <p className="text-gray-700 mb-4">{col.description}</p>
@@ -82,6 +93,7 @@ export default function Storefront() {
                         <p className="text-sm mt-2">{it.description}</p>
                       </div>
                     ))}
+                  </div>
                   </div>
                 </div>
               );
