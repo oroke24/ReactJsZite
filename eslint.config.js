@@ -5,7 +5,17 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores([
+    'dist',
+    // Ignore legacy files kept for reference after items-only refactor
+    'src/components/ProductCard.jsx',
+    'src/components/ProductForm.jsx',
+    'src/components/ProductManager.jsx',
+    'src/components/ServiceManager.jsx',
+    'src/lib/products.js',
+    'src/lib/services.js',
+    'archived_files/**',
+  ]),
   {
     files: ['**/*.{js,jsx}'],
     extends: [

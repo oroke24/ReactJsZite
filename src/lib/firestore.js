@@ -10,6 +10,7 @@ import {
   setDoc,
   deleteDoc,
   writeBatch,
+  orderBy,
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 
@@ -65,8 +66,14 @@ export async function addCollection(businessId, collectionData) {
 
 export async function getCollections(businessId) {
   const ref = collection(db, "businesses", businessId, "collections");
-  const snapshot = await getDocs(ref);
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+  // Prefer server-side ordering by 'order' ascending when available
+  const q = query(ref, orderBy("order", "asc"));
+  const snapshot = await getDocs(q);
+  const rows = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+  // Fallback: ensure a stable sort when some docs might not have 'order'
+  return rows
+    .slice()
+    .sort((a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER) || (a.name || "").localeCompare(b.name || ""));
 }
 
 export async function updateCollection(businessId, collectionId, updates) {

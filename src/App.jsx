@@ -3,6 +3,7 @@ import { Routes, Route, Link, Navigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import Home from "./pages/Home";
 import Storefront from "./pages/Storefront";
+import ItemDetail from "./pages/ItemDetail";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -72,6 +73,8 @@ export default function App() {
           {/* Protected route */}
           <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/" replace />} />
           <Route path="/store" element={user ? <Storefront /> : <Navigate to="/" replace/>} />
+          <Route path="/store/item/:itemId" element={user ? <ItemDetail /> : <Navigate to="/" replace/>} />
+          <Route path="/store/:businessId/item/:itemId" element={user ? <ItemDetail /> : <Navigate to="/" replace/>} />
           <Route path="/account" element={user ? <Account/> : <Navigate to="/" replace/>} />
 
           {/* Fallback */}

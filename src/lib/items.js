@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, getDoc } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 
 const itemsCol = (businessId) => collection(db, "businesses", businessId, "items");
@@ -20,4 +20,10 @@ export async function updateItem(businessId, itemId, updates) {
 
 export async function deleteItem(businessId, itemId) {
   await deleteDoc(itemDoc(businessId, itemId));
+}
+
+export async function getItemById(businessId, itemId) {
+  const ref = itemDoc(businessId, itemId);
+  const snap = await getDoc(ref);
+  return snap.exists() ? { id: itemId, ...snap.data() } : null;
 }

@@ -3,7 +3,7 @@ import { uploadImage, replaceImage, deleteImageByUrl } from "../lib/uploadImage"
 import { addItem, getItems, updateItem, deleteItem } from "../lib/items";
 
 export default function ItemManager({ businessId }) {
-  const [item, setItem] = useState({ name: "", price: "", description: "" });
+  const [item, setItem] = useState({ name: "", price: "", description: "", requireAddress: false });
   const [image, setImage] = useState(null);
   const [preview, setPreview] = useState(null);
   const [items, setItems] = useState([]);
@@ -45,15 +45,15 @@ export default function ItemManager({ businessId }) {
       if (editingId) {
         const current = items.find((x) => x.id === editingId);
         imageUrl = await replaceImage(image, businessId, current?.imageUrl, 'items');
-        await updateItem(businessId, editingId, { ...item, ...(imageUrl && { imageUrl }) });
+        await updateItem(businessId, editingId, { ...item, requireAddress: !!item.requireAddress, ...(imageUrl && { imageUrl }) });
         alert("✅ Item updated!");
         setEditingId(null);
       } else {
         imageUrl = image ? await uploadImage(image, businessId, 'items') : null;
-        const id = await addItem(businessId, { ...item, imageUrl });
+        const id = await addItem(businessId, { ...item, requireAddress: !!item.requireAddress, imageUrl });
         alert(`✅ Added new item (ID: ${id})`);
       }
-      setItem({ name: "", price: "", description: "" });
+      setItem({ name: "", price: "", description: "", requireAddress: false });
       setImage(null);
       await loadItems();
     } catch (e) {
@@ -65,7 +65,7 @@ export default function ItemManager({ businessId }) {
   };
 
   const handleEdit = (x) => {
-    setItem({ name: x.name, price: x.price, description: x.description });
+    setItem({ name: x.name, price: x.price, description: x.description, requireAddress: !!x.requireAddress });
     setPreview(x.imageUrl || null);
     setImage(null);
     setEditingId(x.id);
@@ -73,7 +73,7 @@ export default function ItemManager({ businessId }) {
 
   const handleCancelEdit = () => {
     setEditingId(null);
-    setItem({ name: "", price: "", description: "" });
+    setItem({ name: "", price: "", description: "", requireAddress: false });
     setImage(null);
     setPreview(null);
   };
@@ -120,6 +120,15 @@ export default function ItemManager({ businessId }) {
         className="border p-2 w-full mb-2 rounded"
       />
 
+      <label className="flex items-center gap-2 mb-4 text-sm">
+        <input
+          type="checkbox"
+          checked={!!item.requireAddress}
+          onChange={(e) => setItem({ ...item, requireAddress: e.target.checked })}
+        />
+        Require shipping address at purchase
+      </label>
+
       <div className="mb-4">
         {preview && (
           <div className="mb-2">
@@ -151,6 +160,7 @@ export default function ItemManager({ businessId }) {
                 <div>
                   <strong>{x.name}</strong> — ${x.price}
                   <p className="text-sm text-gray-600">{x.description}</p>
+                  {x.requireAddress && <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-700">Address required</span>}
                 </div>
               </div>
               <div className="flex gap-2">

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import ItemManager from "../components/ItemManager";
 import CollectionsManager from "../components/CollectionsManager";
+import OrdersManager from "../components/OrdersManager";
 import { useAuth } from "../context/AuthContext";
 import { getBusinessesByUser, getUserProfile } from "../lib/firestore";
 
@@ -9,6 +10,7 @@ export default function Dashboard() {
   const [businessId, setBusinessId] = useState(null);
   const [showCollectionsManager, setShowCollectionsManager] = useState(false);
   const [showItemManager, setShowItemManager] = useState(false);
+  const [showOrdersManager, setShowOrdersManager] = useState(false);
 
 
   useEffect(() => {
@@ -61,6 +63,19 @@ export default function Dashboard() {
         {showItemManager && (
           <div className="mt-2">
             <ItemManager businessId={businessId} />
+          </div>
+        )}
+      </div>
+
+      {/* Dropdown: Orders */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between bg-white p-4 rounded shadow cursor-pointer" onClick={() => setShowOrdersManager(v => !v)}>
+          <h2 className="text-lg font-semibold">Orders</h2>
+          <span className="text-blue-600">{showOrdersManager ? 'Hide' : 'Show'}</span>
+        </div>
+        {showOrdersManager && (
+          <div className="mt-2">
+            <OrdersManager businessId={businessId} />
           </div>
         )}
       </div>
