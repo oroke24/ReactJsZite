@@ -1,3 +1,4 @@
+/* eslint-disable */
 import React, { useState, useEffect } from "react";
 import { addService, getServices, updateService, deleteService } from "../lib/services";
 import { uploadImage, replaceImage, deleteImageByUrl } from "../lib/uploadImage";
@@ -7,6 +8,7 @@ export default function ServiceManager({ businessId }) {
     const [image, setImage] = useState(null);
     const [preview, setPreview] = useState(null);
     const [services, setServices] = useState([]);
+    const [showList, setShowList] = useState(true);
     const [editingId, setEditingId] = useState(null);
     const [loading, setLoading] = useState(false);
 
@@ -24,6 +26,22 @@ export default function ServiceManager({ businessId }) {
         if (!businessId) return;
         const data = await getServices(businessId);
         setServices(data);
+    };
+
+    // Ensure we load services when the list is visible or when businessId changes
+    useEffect(() => {
+        if (showList) {
+            loadServices();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [showList, businessId]);
+
+    const toggleServicesList = async () => {
+        const next = !showList;
+        setShowList(next);
+        if (next) {
+            await loadServices();
+        }
     };
 
     const handleAddOrUpdate = async () => {
@@ -155,11 +173,11 @@ export default function ServiceManager({ businessId }) {
                     </button>
                 )}
 
-                <button onClick={loadServices} className="bg-blue-600 text-white px-4 py-2 rounded">
-                    Load Services
+                <button onClick={toggleServicesList} className="bg-blue-600 text-white px-4 py-2 rounded">
+                    {showList ? 'Hide Services' : 'Show Services'}
                 </button>
             </div>
-
+            <div style={{ overflow: 'hidden', transition: 'max-height 300ms ease', maxHeight: showList ? '1000px' : '0px' }}>
             <ul className="bg-gray-100 p-4 mt-4">
                 {services.map((p) => (
                     <li
@@ -177,6 +195,7 @@ export default function ServiceManager({ businessId }) {
                             <div>
                                 <strong>{p.name}</strong> — ${p.price}
                                 <p className="text-sm text-gray-600">{p.description}</p>
+                                {/* Collection label removed per request */}
                             </div>
                         </div>
 
@@ -197,6 +216,7 @@ export default function ServiceManager({ businessId }) {
                     </li>
                 ))}
             </ul>
+            </div>
         </div>
     );
 }

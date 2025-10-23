@@ -5,7 +5,6 @@ import { updateBusiness } from "../lib/firestore";
 
 export default function Account() {
   const { user } = useAuth();
-  const [profile, setProfile] = useState(null);
   const [business, setBusiness] = useState(null);
   const [editing, setEditing] = useState(false);
 
@@ -16,7 +15,6 @@ export default function Account() {
       if (!user) return;
       try {
         const p = await getUserProfile(user.uid);
-        setProfile(p);
         if (p?.primaryBusinessId) {
           const b = await getBusinessById(p.primaryBusinessId);
           setBusiness(b);

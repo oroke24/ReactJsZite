@@ -21,7 +21,7 @@ export default function BusinessSetup() {
         await updateBusiness(business.id, updates);
         alert("Business updated!");
       } else {
-        const id = await addBusiness(business, user);
+        await addBusiness(business, user);
         alert("Business created!");
       }
       navigate(`/dashboard`);

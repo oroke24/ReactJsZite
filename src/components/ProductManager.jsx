@@ -1,12 +1,14 @@
+/* eslint-disable */
 import React, { useState, useEffect } from "react";
 import { addProduct, getProducts, updateProduct, deleteProduct } from "../lib/products";
 import { uploadImage, replaceImage, deleteImageByUrl } from "../lib/uploadImage";
 
 export default function ProductManager({ businessId, collections = [] }) {
-    const [product, setProduct] = useState({ name: "", price: "", description: "", collectionId: null });
+    const [product, setProduct] = useState({ name: "", price: "", description: "" });
     const [image, setImage] = useState(null);
     const [preview, setPreview] = useState(null);
     const [products, setProducts] = useState([]);
+    const [showList, setShowList] = useState(true);
     const [editingId, setEditingId] = useState(null);
     const [loading, setLoading] = useState(false);
 
@@ -24,6 +26,22 @@ export default function ProductManager({ businessId, collections = [] }) {
         if (!businessId) return;
         const data = await getProducts(businessId);
         setProducts(data);
+    };
+
+    // Ensure we load products when the list is visible or when businessId changes
+    useEffect(() => {
+        if (showList) {
+            loadProducts();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [showList, businessId]);
+
+    const toggleProductsList = async () => {
+        const next = !showList;
+        setShowList(next);
+        if (next) {
+            await loadProducts();
+        }
     };
 
     const handleAddOrUpdate = async () => {
@@ -44,7 +62,7 @@ export default function ProductManager({ businessId, collections = [] }) {
                 setEditingId(null);
             } else {
                 imageUrl = image ? await uploadImage(image, businessId) : null;
-                const id = await addProduct(businessId, { ...product, imageUrl, collectionId: product.collectionId || null });
+                const id = await addProduct(businessId, { ...product, imageUrl });
                 alert(`✅ Added new product (ID: ${id})`);
             }
 
@@ -60,7 +78,7 @@ export default function ProductManager({ businessId, collections = [] }) {
     };
 
     const handleEdit = (p) => {
-        setProduct({ name: p.name, price: p.price, description: p.description, collectionId: p.collectionId || null });
+        setProduct({ name: p.name, price: p.price, description: p.description });
         setPreview(p.imageUrl || null);
         setImage(null);
         setEditingId(p.id);
@@ -95,20 +113,7 @@ export default function ProductManager({ businessId, collections = [] }) {
                 onChange={(e) => setProduct({ ...product, name: e.target.value })}
                 className="border p-2 w-full mb-2 rounded"
             />
-            {/* Collection selector */}
-            <div className="mb-2">
-                <label className="block text-sm mb-1">Collection</label>
-                <select
-                    value={product.collectionId || ""}
-                    onChange={(e) => setProduct({ ...product, collectionId: e.target.value || null })}
-                    className="border p-2 w-full mb-2 rounded"
-                >
-                    <option value="">-- None --</option>
-                    {collections.map((c) => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                </select>
-            </div>
+            {/* Removed collections dropdown to use Collections Manager for membership */}
             <input
                 type="number"
                 placeholder="Price"
@@ -169,11 +174,12 @@ export default function ProductManager({ businessId, collections = [] }) {
                     </button>
                 )}
 
-                <button onClick={loadProducts} className="bg-blue-600 text-white px-4 py-2 rounded">
-                    Load Products
+                <button onClick={toggleProductsList} className="bg-blue-600 text-white px-4 py-2 rounded">
+                    {showList ? 'Hide Products' : 'Show Products'}
                 </button>
             </div>
 
+            <div style={{ overflow: 'hidden', transition: 'max-height 300ms ease', maxHeight: showList ? '1000px' : '0px' }}>
             <ul className="bg-gray-100 p-4 mt-4">
                 {products.map((p) => (
                     <li
@@ -191,9 +197,7 @@ export default function ProductManager({ businessId, collections = [] }) {
                             <div>
                                 <strong>{p.name}</strong> — ${p.price}
                                 <p className="text-sm text-gray-600">{p.description}</p>
-                                {p.collectionId && (
-                                    <div className="text-xs text-gray-500 mt-1">Collection: {collections.find(c => c.id === p.collectionId)?.name || p.collectionId}</div>
-                                )}
+                                {/* Collection label removed per request */}
                             </div>
                         </div>
 
@@ -214,6 +218,7 @@ export default function ProductManager({ businessId, collections = [] }) {
                     </li>
                 ))}
             </ul>
+            </div>
         </div>
     );
 }

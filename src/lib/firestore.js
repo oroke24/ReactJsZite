@@ -8,6 +8,8 @@ import {
   doc,
   updateDoc,
   setDoc,
+  deleteDoc,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 
@@ -70,4 +72,42 @@ export async function getCollections(businessId) {
 export async function updateCollection(businessId, collectionId, updates) {
   const ref = doc(db, "businesses", businessId, "collections", collectionId);
   await updateDoc(ref, updates);
+}
+
+export async function deleteCollection(businessId, collectionId) {
+  const ref = doc(db, "businesses", businessId, "collections", collectionId);
+
+  // First, delete membership docs under this collection (subcollections: products, services)
+  const colProductsRef = collection(db, "businesses", businessId, "collections", collectionId, "products");
+  const colServicesRef = collection(db, "businesses", businessId, "collections", collectionId, "services");
+  const colItemsRef = collection(db, "businesses", businessId, "collections", collectionId, "items");
+  const [colProdSnap, colSvcSnap, colItemSnap] = await Promise.all([getDocs(colProductsRef), getDocs(colServicesRef), getDocs(colItemsRef)]);
+  const batch1 = writeBatch(db);
+  colProdSnap.docs.forEach((d) => batch1.delete(d.ref));
+  colSvcSnap.docs.forEach((d) => batch1.delete(d.ref));
+  colItemSnap.docs.forEach((d) => batch1.delete(d.ref));
+  if (colProdSnap.docs.length > 0 || colSvcSnap.docs.length > 0 || colItemSnap.docs.length > 0) {
+    await batch1.commit();
+  }
+
+  // Then hard delete the collection document itself
+  await deleteDoc(ref);
+}
+
+// --- Collection membership helpers ---
+export async function getCollectionMembers(businessId, collectionId, type) {
+  const ref = collection(db, "businesses", businessId, "collections", collectionId, type); // type: 'products' | 'services'
+  const snap = await getDocs(ref);
+  return snap.docs.map((d) => d.id);
+}
+
+export async function addCollectionMember(businessId, collectionId, type, itemId) {
+  // store membership doc id as the item id for idempotency
+  const ref = doc(db, "businesses", businessId, "collections", collectionId, type, itemId);
+  await setDoc(ref, { createdAt: new Date() }, { merge: true });
+}
+
+export async function removeCollectionMember(businessId, collectionId, type, itemId) {
+  const ref = doc(db, "businesses", businessId, "collections", collectionId, type, itemId);
+  await deleteDoc(ref);
 }
