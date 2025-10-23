@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { deleteField } from "firebase/firestore";
 import { uploadImage, replaceImage, deleteImageByUrl } from "../lib/uploadImage";
 import { addItem, getItems, updateItem, deleteItem } from "../lib/items";
 
@@ -10,6 +11,7 @@ export default function ItemManager({ businessId }) {
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showList, setShowList] = useState(true);
+  const [removeImage, setRemoveImage] = useState(false);
 
   useEffect(() => {
     if (image) {
@@ -41,20 +43,35 @@ export default function ItemManager({ businessId }) {
     if (!businessId) return alert("No business selected!");
     setLoading(true);
     try {
-      let imageUrl = null;
       if (editingId) {
         const current = items.find((x) => x.id === editingId);
-        imageUrl = await replaceImage(image, businessId, current?.imageUrl, 'items');
-        await updateItem(businessId, editingId, { ...item, requireAddress: !!item.requireAddress, ...(imageUrl && { imageUrl }) });
+        let nextImageUrl = current?.imageUrl || null;
+        // If user chose a new image, replace it
+        if (image) {
+          nextImageUrl = await replaceImage(image, businessId, current?.imageUrl, 'items');
+        } else if (removeImage && current?.imageUrl) {
+          // Explicit removal
+          await deleteImageByUrl(current.imageUrl);
+          nextImageUrl = null;
+        }
+        const updates = { ...item, requireAddress: !!item.requireAddress };
+        if (removeImage && !image) {
+          updates.imageUrl = deleteField();
+        } else if (image) {
+          updates.imageUrl = nextImageUrl;
+        }
+        await updateItem(businessId, editingId, updates);
         alert("✅ Item updated!");
         setEditingId(null);
       } else {
-        imageUrl = image ? await uploadImage(image, businessId, 'items') : null;
-        const id = await addItem(businessId, { ...item, requireAddress: !!item.requireAddress, imageUrl });
+        const imageUrl = image ? await uploadImage(image, businessId, 'items') : null;
+        const data = { ...item, requireAddress: !!item.requireAddress, ...(imageUrl ? { imageUrl } : {}) };
+        const id = await addItem(businessId, data);
         alert(`✅ Added new item (ID: ${id})`);
       }
       setItem({ name: "", price: "", description: "", requireAddress: false });
       setImage(null);
+      setRemoveImage(false);
       await loadItems();
     } catch (e) {
       console.error(e);
@@ -68,6 +85,7 @@ export default function ItemManager({ businessId }) {
     setItem({ name: x.name, price: x.price, description: x.description, requireAddress: !!x.requireAddress });
     setPreview(x.imageUrl || null);
     setImage(null);
+    setRemoveImage(false);
     setEditingId(x.id);
   };
 
@@ -76,6 +94,7 @@ export default function ItemManager({ businessId }) {
     setItem({ name: "", price: "", description: "", requireAddress: false });
     setImage(null);
     setPreview(null);
+    setRemoveImage(false);
   };
 
   const handleDelete = async (id) => {
@@ -129,14 +148,35 @@ export default function ItemManager({ businessId }) {
         Require shipping address at purchase
       </label>
 
+      {/* Item image chooser */}
       <div className="mb-4">
-        {preview && (
-          <div className="mb-2">
-            <img src={preview} alt="Preview" className="w-32 h-32 object-cover rounded border mb-2" />
-            <button onClick={() => { setImage(null); setPreview(null); }} className="bg-red-500 text-white px-3 py-1 rounded">Remove Image</button>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Item image</label>
+        <p className="text-xs text-gray-500 mb-2">Shown on your storefront and item page. Recommended square image (≥ 800×800).</p>
+        <div className="border-2 border-dashed rounded p-3 bg-gray-50">
+          {preview ? (
+            <div className="mb-2">
+              <img src={preview} alt="Item image preview" className="w-32 h-32 object-cover rounded border mb-2" />
+            </div>
+          ) : (
+            <div className="py-6 text-center text-sm text-gray-500">No image yet. Click “Choose image” to upload.</div>
+          )}
+          <div className="flex items-center gap-3">
+            <input id="item-image-input" type="file" accept="image/*" className="hidden" onChange={(e) => { setImage(e.target.files[0]); setRemoveImage(false); }} />
+            <label htmlFor="item-image-input" className="px-3 py-2 bg-gray-200 rounded cursor-pointer hover:bg-gray-300">
+              Choose image
+            </label>
+            {(preview || removeImage) && (
+              <button
+                type="button"
+                className="text-sm text-red-600 underline"
+                onClick={() => { setImage(null); setPreview(null); setRemoveImage(true); }}
+              >
+                Remove image
+              </button>
+            )}
+            <span className="text-xs text-gray-500">PNG or JPG, up to 5MB</span>
           </div>
-        )}
-        <input type="file" accept="image/*" onChange={(e) => setImage(e.target.files[0])} className="block" />
+        </div>
       </div>
 
       <div className="flex gap-2 mb-5">

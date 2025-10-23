@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { getUserProfile, getBusinessById } from "../lib/firestore";
+import { getUserProfile, getBusinessById, getBusinessIdBySlug } from "../lib/firestore";
 import { getItemById } from "../lib/items";
 import { addOrder } from "../lib/orders";
 
@@ -36,6 +36,11 @@ export default function ItemDetail() {
         if (!id && user) {
           const profile = await getUserProfile(user.uid);
           if (profile?.primaryBusinessId) id = profile.primaryBusinessId;
+        }
+        // Try resolving route param as slug first if present
+        if (routeBusinessId) {
+          const bySlug = await getBusinessIdBySlug(routeBusinessId);
+          if (bySlug) id = bySlug;
         }
         if (!id) return;
         setBusinessId(id);
@@ -123,7 +128,12 @@ export default function ItemDetail() {
         <button
           type="button"
           onClick={() => {
-            if (window.history.length > 1) {
+            const target = business?.slug
+              ? `/store/${business.slug}`
+              : (business?.id ? `/store/${business.id}` : (businessId ? `/store/${businessId}` : null));
+            if (target) {
+              navigate(target);
+            } else if (window.history.length > 1) {
               navigate(-1);
             } else {
               navigate('/store');

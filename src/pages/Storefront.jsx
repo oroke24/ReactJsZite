@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { getUserProfile, getBusinessById } from "../lib/firestore";
+import { getUserProfile, getBusinessById, getBusinessIdBySlug } from "../lib/firestore";
 import { getCollections, getCollectionMembers } from "../lib/firestore";
 import { getItems } from "../lib/items";
 
@@ -22,8 +22,12 @@ export default function Storefront() {
           const profile = await getUserProfile(user.uid);
           if (profile?.primaryBusinessId) id = profile.primaryBusinessId;
         }
-
-  if (!id) return;
+        // If a route param is provided, try to resolve it as a slug first
+        if (routeBusinessId) {
+          const bySlug = await getBusinessIdBySlug(routeBusinessId);
+          if (bySlug) id = bySlug;
+        }
+        if (!id) return;
         const b = await getBusinessById(id);
         setBusiness(b);
         const [its, cols] = await Promise.all([
@@ -108,7 +112,8 @@ export default function Storefront() {
               .map((col) => {
               const member = collectionMembers[col.id];
               const colItems = member ? items.filter((it) => member.has(it.id)) : [];
-              if (colItems.length === 0) return null;
+              const hasDescription = !!(col.description && String(col.description).trim().length > 0);
+              if (colItems.length === 0 && !hasDescription) return null;
               // reuse toRgba defined above
               const bgStyle = col.backgroundColor
                 ? { backgroundColor: (typeof col.backgroundOpacity === 'number' ? toRgba(col.backgroundColor, col.backgroundOpacity) : col.backgroundColor) }
@@ -121,22 +126,24 @@ export default function Storefront() {
                   {col.description && (
                     <p className="mb-4" style={textStyle}>{col.description}</p>
                   )}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {colItems.map((it) => (
-                      <Link
-                        key={it.id}
-                        to={business?.id ? `/store/${business.id}/item/${it.id}` : `/store/item/${it.id}`}
-                        className="border rounded p-4 bg-white shadow hover:shadow-md transition block"
-                      >
-                        {it.imageUrl && (
-                          <img src={it.imageUrl} alt={it.name} className="w-full h-40 object-cover mb-3 rounded" />
-                        )}
-                        <h3 className="font-bold">{it.name}</h3>
-                        <div className="text-sm text-gray-600">${it.price}</div>
-                        <p className="text-sm mt-2 line-clamp-3">{it.description}</p>
-                      </Link>
-                    ))}
-                  </div>
+                  {colItems.length > 0 && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {colItems.map((it) => (
+                        <Link
+                          key={it.id}
+                          to={business?.id ? `/store/${business.slug || business.id}/item/${it.id}` : `/store/item/${it.id}`}
+                          className="border rounded p-4 bg-white shadow hover:shadow-md transition block"
+                        >
+                          {it.imageUrl && (
+                            <img src={it.imageUrl} alt={it.name} className="w-full h-40 object-cover mb-3 rounded" />
+                          )}
+                          <h3 className="font-bold">{it.name}</h3>
+                          <div className="text-sm text-gray-600">${it.price}</div>
+                          <p className="text-sm mt-2 line-clamp-3">{it.description}</p>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                   </div>
                 </div>
               );

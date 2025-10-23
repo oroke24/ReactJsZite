@@ -2,19 +2,31 @@ import { useEffect, useState } from "react";
 import { deleteField } from "firebase/firestore";
 import { useAuth } from "../context/AuthContext";
 import { getUserProfile, getBusinessById } from "../lib/firestore";
+import { checkSlugAvailable, setBusinessSlug, clearBusinessSlug, normalizeSlug } from "../lib/firestore";
 import { updateBusiness } from "../lib/firestore";
 import { replaceImage, deleteImageByUrl } from "../lib/uploadImage";
+import QRCode from "qrcode";
+import ContactAdminModal from "../components/ContactAdminModal";
 
 export default function Account() {
   const { user } = useAuth();
   const [business, setBusiness] = useState(null);
-  const [editing, setEditing] = useState(false);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [removeImage, setRemoveImage] = useState(false);
   const [imagePos, setImagePos] = useState({ x: 50, y: 50 });
+  const [showUserSection, setShowUserSection] = useState(false);
+  const [showBusinessSection, setShowBusinessSection] = useState(false);
+  const [showLandingSection, setShowLandingSection] = useState(false);
+  const [showPaymentsSection, setShowPaymentsSection] = useState(false);
 
   const [form, setForm] = useState({ name: "", description: "", backgroundColor: "", backgroundOpacity: 1, useGradient: false, gradientFrom: "", gradientTo: "", gradientAngle: 0 });
+  const [showContactAdmin, setShowContactAdmin] = useState(false);
+  const [slugInput, setSlugInput] = useState("");
+  const [slugStatus, setSlugStatus] = useState({ state: "idle" }); // idle|checking|available|taken|invalid|reserved|error
+  const [qrPreview, setQrPreview] = useState("");
+  const [qrGenerating, setQrGenerating] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({ method: "", payoutEmail: "", linkUrl: "", notes: "" });
 
   useEffect(() => {
     const load = async () => {
@@ -24,6 +36,15 @@ export default function Account() {
         if (p?.primaryBusinessId) {
           const b = await getBusinessById(p.primaryBusinessId);
           setBusiness(b);
+          setSlugInput(b?.slug || "");
+          setSlugStatus({ state: "idle" });
+          const pay = b?.payment || {};
+          setPaymentForm({
+            method: pay.method || "",
+            payoutEmail: pay.payoutEmail || "",
+            linkUrl: pay.linkUrl || "",
+            notes: pay.notes || "",
+          });
         }
       } catch (err) {
         console.error("Failed to load account data", err);
@@ -46,95 +67,147 @@ export default function Account() {
     }
   }, [imageFile, business, removeImage]);
 
+  // Initialize business form when the business section is opened or business changes
+  useEffect(() => {
+    if (!showBusinessSection || !business) return;
+    setForm({
+      name: business.name || "",
+      description: business.description || "",
+      companyEmail: business.companyEmail || "",
+      companyPhone: business.companyPhone || "",
+      backgroundColor: business.backgroundColor || "",
+      backgroundOpacity: typeof business.backgroundOpacity === 'number' ? business.backgroundOpacity : 1,
+      useGradient: !!business.backgroundGradientFrom,
+      gradientFrom: business.backgroundGradientFrom || "",
+      gradientTo: business.backgroundGradientTo || "",
+      gradientAngle: typeof business.backgroundGradientAngle === 'number' ? business.backgroundGradientAngle : 0,
+      textColor: business.textColor || "",
+    });
+    setImageFile(null);
+    setRemoveImage(false);
+    setImagePreview(business.imageUrl || null);
+    let x = 50, y = 50;
+    if (typeof business.imagePosition === 'string') {
+      const m = business.imagePosition.match(/(\d+)%\s+(\d+)%/);
+      if (m) { x = parseInt(m[1], 10); y = parseInt(m[2], 10); }
+    }
+    setImagePos({ x, y });
+  }, [showBusinessSection, business]);
+
+  // Debounced slug availability check when editing
+  useEffect(() => {
+    if (!business) return;
+    const desired = normalizeSlug(slugInput || "");
+    if (desired === (business.slug || "")) {
+      setSlugStatus({ state: "idle" });
+      return;
+    }
+    if (!desired) {
+      setSlugStatus({ state: "idle" });
+      return;
+    }
+    let cancelled = false;
+    setSlugStatus({ state: "checking" });
+    const t = setTimeout(async () => {
+      try {
+        const res = await checkSlugAvailable(desired);
+        if (cancelled) return;
+        if (!res.available) {
+          const reason = res.reason || "taken";
+          setSlugStatus({ state: reason });
+        } else {
+          setSlugStatus({ state: "available" });
+        }
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) setSlugStatus({ state: "error" });
+      }
+    }, 400);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [slugInput, business]);
+
+  // Generate a small preview QR when business or slug changes
+  useEffect(() => {
+    const gen = async () => {
+      if (!business) return;
+      try {
+        setQrGenerating(true);
+        const url = (typeof window !== 'undefined' ? window.location.origin : '') + `/store/${business.slug || business.id}`;
+        const dataUrl = await QRCode.toDataURL(url, { width: 288, margin: 2, errorCorrectionLevel: 'M' });
+        setQrPreview(dataUrl);
+      } catch (e) {
+        console.error('QR preview failed', e);
+        setQrPreview("");
+      } finally {
+        setQrGenerating(false);
+      }
+    };
+    gen();
+  }, [business?.id, business?.slug]);
+
+  // Keep payment form in sync when opening Payments section
+  useEffect(() => {
+    if (!showPaymentsSection || !business) return;
+    const pay = business?.payment || {};
+    setPaymentForm({
+      method: pay.method || "",
+      payoutEmail: pay.payoutEmail || "",
+      linkUrl: pay.linkUrl || "",
+      notes: pay.notes || "",
+    });
+  }, [showPaymentsSection, business]);
+
   return (
+    <>
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-4">Account</h1>
 
       <section className="mb-6">
-        <h2 className="text-xl font-semibold">User</h2>
-        <div className="mt-2">
-          <div>Email: {user?.email}</div>
-          <div>UID: {user?.uid}</div>
+        <div
+          className="flex items-center justify-between bg-white p-4 rounded shadow cursor-pointer"
+          onClick={() => setShowUserSection((v) => !v)}
+        >
+          <h2 className="text-xl font-semibold">User</h2>
+          <span className="text-blue-600">{showUserSection ? "Hide" : "Show"}</span>
         </div>
+        {showUserSection && (
+          <div className="mt-2 bg-white p-4 rounded shadow">
+            <p className="text-xs text-gray-500 mb-3">
+              Note: This user information comes from your sign-in and isn't editable here.
+            </p>
+            <div className="text-sm">Email: {user?.email}</div>
+            <div className="text-sm">UID: {user?.uid}</div>
+            {business?.id && (
+              <div className="text-sm">Business ID: {business.id}</div>
+            )}
+            <div className="mt-3">
+              <button
+                type="button"
+                className="px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+                onClick={() => setShowContactAdmin(true)}
+                disabled={!user}
+              >
+                Contact admin
+              </button>
+            </div>
+          </div>
+        )}
       </section>
 
-      <section>
-        <h2 className="text-xl font-semibold">Business</h2>
-        {!business && <p className="mt-2">No business found yet. Create one in Business Setup.</p>}
-        {business && (
-          <div className="mt-2 bg-white p-4 rounded shadow">
-                {!editing && (
-              <>
-                {business.imageUrl && (
-                  <div className="mb-3">
-                    <img src={business.imageUrl} alt="Business" className="w-full max-w-xl h-40 object-cover rounded border" style={{ objectPosition: business.imagePosition || '50% 50%' }} />
-                  </div>
-                )}
-                <h3 className="text-lg font-bold">{business.name}</h3>
-                <p className="text-sm text-gray-700">{business.description}</p>
-                <div className="mt-2">
-                  <div className="text-sm">Company email: {business.companyEmail || "—"}</div>
-                  <div className="text-sm">Company phone: {business.companyPhone || "—"}</div>
-                </div>
-                {(business.backgroundColor || business.backgroundGradientFrom) && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <span className="text-sm">Storefront background:</span>
-                    {business.backgroundGradientFrom ? (
-                      <span className="inline-block w-10 h-6 rounded border" style={{ backgroundImage: `linear-gradient(${business.backgroundGradientAngle || 0}deg, ${business.backgroundGradientFrom}, ${business.backgroundGradientTo || business.backgroundGradientFrom})` }} />
-                    ) : (
-                      <span className="inline-block w-6 h-6 rounded border" style={{ backgroundColor: business.backgroundColor }} />
-                    )}
-                    <span className="text-xs text-gray-600">
-                      {business.backgroundGradientFrom ? `gradient ${business.backgroundGradientFrom} → ${business.backgroundGradientTo || business.backgroundGradientFrom}` : business.backgroundColor}
-                    </span>
-                    {typeof business.backgroundOpacity === 'number' && (
-                      <span className="text-xs text-gray-500">({Math.round(business.backgroundOpacity * 100)}% opacity)</span>
-                    )}
-                    {business.textColor && (
-                      <span className="ml-3 inline-flex items-center gap-1 text-xs text-gray-600">
-                        Text:
-                        <span className="inline-block w-6 h-3 rounded border" style={{ backgroundColor: business.textColor }} />
-                        {business.textColor}
-                      </span>
-                    )}
-                  </div>
-                )}
-                <div className="mt-3 text-xs text-gray-500">Business ID: {business.id}</div>
-                <button
-                  onClick={() => {
-                    setForm({
-                      name: business.name || "",
-                      description: business.description || "",
-                      companyEmail: business.companyEmail || "",
-                      companyPhone: business.companyPhone || "",
-                      backgroundColor: business.backgroundColor || "",
-                      backgroundOpacity: typeof business.backgroundOpacity === 'number' ? business.backgroundOpacity : 1,
-                      useGradient: !!business.backgroundGradientFrom,
-                      gradientFrom: business.backgroundGradientFrom || "",
-                      gradientTo: business.backgroundGradientTo || "",
-                      gradientAngle: typeof business.backgroundGradientAngle === 'number' ? business.backgroundGradientAngle : 0,
-                      textColor: business.textColor || "",
-                    });
-                    setImageFile(null);
-                    setRemoveImage(false);
-                    setImagePreview(business.imageUrl || null);
-                    // init image position from saved value like "25% 75%"
-                    let x = 50, y = 50;
-                    if (typeof business.imagePosition === 'string') {
-                      const m = business.imagePosition.match(/(\d+)%\s+(\d+)%/);
-                      if (m) { x = parseInt(m[1], 10); y = parseInt(m[2], 10); }
-                    }
-                    setImagePos({ x, y });
-                    setEditing(true);
-                  }}
-                  className="mt-3 bg-blue-600 text-white px-3 py-1 rounded"
-                >
-                  Edit Business
-                </button>
-              </>
-            )}
+      
 
-            {editing && (
+      <section>
+        <div
+          className="flex items-center justify-between bg-white p-4 rounded shadow cursor-pointer"
+          onClick={() => setShowBusinessSection((v) => !v)}
+        >
+          <h2 className="text-xl font-semibold">Business</h2>
+          <span className="text-blue-600">{showBusinessSection ? "Hide" : "Show"}</span>
+        </div>
+        {showBusinessSection && (
+          <div className="mt-2 bg-white p-4 rounded shadow">
+            {!business && <p className="mt-2">No business found yet. Create one in Business Setup.</p>}
+            {business && (
               <form
                 onSubmit={async (e) => {
                   e.preventDefault();
@@ -213,38 +286,68 @@ export default function Account() {
                 />
                 {/* Image upload/preview */}
                 <div className="mb-3">
-                  {imagePreview && (
-                    <div className="mb-2">
-                      <img src={imagePreview} alt="Preview" className="w-full max-w-xl h-40 object-cover rounded border" style={{ objectPosition: `${imagePos.x}% ${imagePos.y}%` }} />
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2">
-                    <input type="file" accept="image/*" onChange={(e) => { setImageFile(e.target.files[0]); setRemoveImage(false); }} />
-                    {(business?.imageUrl || imagePreview) && (
-                      <button
-                        type="button"
-                        className="text-sm text-red-600 underline"
-                        onClick={() => { setImageFile(null); setRemoveImage(true); setImagePreview(null); }}
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Main storefront image</label>
+                  <p className="text-xs text-gray-500 mb-2">This image appears at the top of your public store. Recommended size ≥ 1200×400.</p>
+                  <div className="border-2 border-dashed rounded p-3 bg-gray-50">
+                    {imagePreview ? (
+                      <div className="mb-2">
+                        <img
+                          src={imagePreview}
+                          alt="Main storefront image preview"
+                          className="w-full max-w-xl h-40 object-cover rounded border"
+                          style={{ objectPosition: `${imagePos.x}% ${imagePos.y}%` }}
+                        />
+                      </div>
+                    ) : (
+                      <div className="py-8 text-center text-sm text-gray-500">No image yet. Click “Choose image” to upload.</div>
+                    )}
+
+                    <div className="flex items-center gap-3">
+                      <input
+                        id="main-image-input"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files && e.target.files[0];
+                          setImageFile(f || null);
+                          setRemoveImage(false);
+                        }}
+                      />
+                      <label
+                        htmlFor="main-image-input"
+                        className="px-3 py-2 bg-gray-200 rounded cursor-pointer hover:bg-gray-300"
                       >
-                        Remove image
-                      </button>
+                        Choose image
+                      </label>
+                      {(business?.imageUrl || imagePreview) && (
+                        <button
+                          type="button"
+                          className="text-sm text-red-600 underline"
+                          onClick={() => { setImageFile(null); setRemoveImage(true); setImagePreview(null); }}
+                        >
+                          Remove image
+                        </button>
+                      )}
+                      <span className="text-xs text-gray-500">PNG or JPG, up to 5MB</span>
+                    </div>
+
+                    {(business?.imageUrl || imagePreview) && !removeImage && (
+                      <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-sm text-gray-700 block mb-1">Horizontal focus: {imagePos.x}%</label>
+                          <input type="range" min="0" max="100" value={imagePos.x} onChange={(e) => setImagePos(pos => ({ ...pos, x: parseInt(e.target.value, 10) }))} className="w-full" />
+                        </div>
+                        <div>
+                          <label className="text-sm text-gray-700 block mb-1">Vertical focus: {imagePos.y}%</label>
+                          <input type="range" min="0" max="100" value={imagePos.y} onChange={(e) => setImagePos(pos => ({ ...pos, y: parseInt(e.target.value, 10) }))} className="w-full" />
+                        </div>
+                        <div className="md:col-span-2">
+                          <button type="button" className="text-sm text-gray-600 underline" onClick={() => setImagePos({ x: 50, y: 50 })}>Reset position</button>
+                        </div>
+                      </div>
                     )}
                   </div>
-                  {(business?.imageUrl || imagePreview) && !removeImage && (
-                    <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm text-gray-700 block mb-1">Horizontal focus: {imagePos.x}%</label>
-                        <input type="range" min="0" max="100" value={imagePos.x} onChange={(e) => setImagePos(pos => ({ ...pos, x: parseInt(e.target.value, 10) }))} className="w-full" />
-                      </div>
-                      <div>
-                        <label className="text-sm text-gray-700 block mb-1">Vertical focus: {imagePos.y}%</label>
-                        <input type="range" min="0" max="100" value={imagePos.y} onChange={(e) => setImagePos(pos => ({ ...pos, y: parseInt(e.target.value, 10) }))} className="w-full" />
-                      </div>
-                      <div className="md:col-span-2">
-                        <button type="button" className="text-sm text-gray-600 underline" onClick={() => setImagePos({ x: 50, y: 50 })}>Reset position</button>
-                      </div>
-                    </div>
-                  )}
                 </div>
                 <div className="flex flex-col gap-3 mb-3">
                   <div className="flex items-center gap-3 flex-wrap">
@@ -314,7 +417,7 @@ export default function Account() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setEditing(false)}
+                    onClick={() => setShowBusinessSection(false)}
                     className="bg-gray-400 text-white px-3 py-1 rounded"
                   >
                     Cancel
@@ -325,6 +428,285 @@ export default function Account() {
           </div>
         )}
       </section>
+
+      {/* Landing page / public storefront link and custom address */}
+      <section className="mt-6">
+        <div
+          className="flex items-center justify-between bg-white p-4 rounded shadow cursor-pointer"
+          onClick={() => setShowLandingSection((v) => !v)}
+        >
+          <h2 className="text-xl font-semibold">Landing page</h2>
+          <span className="text-blue-600">{showLandingSection ? "Hide" : "Show"}</span>
+        </div>
+        {showLandingSection && (
+        <div className="mt-2 bg-white p-4 rounded shadow">
+          {!business && <p className="text-sm text-gray-600">No business found.</p>}
+          {business && (
+              <div className="space-y-6">
+              <div className="flex items-center flex-wrap gap-2">
+                <span className="text-sm text-gray-700">Storefront URL:</span>
+                <input
+                  className="border p-1 rounded text-sm w-full md:w-auto md:min-w-[20rem]"
+                  readOnly
+                  value={(typeof window !== 'undefined' ? window.location.origin : '') + `/store/${business.slug || business.id}`}
+                  onFocus={(e) => e.target.select()}
+                />
+                <button
+                  type="button"
+                  className="text-sm px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
+                  onClick={async () => {
+                    const url = (typeof window !== 'undefined' ? window.location.origin : '') + `/store/${business.slug || business.id}`;
+                    try {
+                      await navigator.clipboard.writeText(url);
+                      alert('Link copied to clipboard');
+                    } catch (err) {
+                      console.error('Copy failed', err);
+                    }
+                  }}
+                >
+                  Copy link
+                </button>
+                <a
+                  href={`/store/${business.slug || business.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm text-blue-600 underline"
+                >
+                  Open
+                </a>
+              </div>
+
+              <div>
+                <label className="block text-sm mb-1">Custom address (optional)</label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm text-gray-600">/store/</span>
+                  <input
+                    className="border p-2 rounded text-sm w-64"
+                    placeholder="your-name"
+                    value={slugInput}
+                    onChange={(e) => setSlugInput(e.target.value)}
+                  />
+                  {slugStatus.state === 'checking' && (
+                    <span className="text-xs text-gray-500">Checking…</span>
+                  )}
+                  {slugStatus.state === 'available' && (
+                    <span className="text-xs text-green-700">Available</span>
+                  )}
+                  {slugStatus.state === 'taken' && (
+                    <span className="text-xs text-red-600">Taken</span>
+                  )}
+                  {slugStatus.state === 'invalid' && (
+                    <span className="text-xs text-red-600">Invalid format</span>
+                  )}
+                  {slugStatus.state === 'reserved' && (
+                    <span className="text-xs text-red-600">Reserved</span>
+                  )}
+                  {slugStatus.state === 'error' && (
+                    <span className="text-xs text-red-600">Error checking</span>
+                  )}
+                  <button
+                    type="button"
+                    className="text-sm px-2 py-1 bg-blue-600 text-white rounded disabled:opacity-50"
+                    disabled={normalizeSlug(slugInput || '') === (business.slug || '') || (slugInput ? slugStatus.state !== 'available' : false)}
+                    onClick={async () => {
+                      const desired = normalizeSlug(slugInput || '');
+                      if (!desired) return;
+                      try {
+                        const applied = await setBusinessSlug(business.id, desired);
+                        const updated = await getBusinessById(business.id);
+                        setBusiness(updated);
+                        setSlugInput(applied);
+                        setSlugStatus({ state: 'idle' });
+                        alert('Custom address set');
+                      } catch (e) {
+                        console.error(e);
+                        alert(e?.message === 'taken' ? 'That address was just taken. Try another.' : 'Failed to set address');
+                      }
+                    }}
+                  >
+                    Save address
+                  </button>
+                  {business.slug && (
+                    <button
+                      type="button"
+                      className="text-sm px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
+                      onClick={async () => {
+                        try {
+                          await clearBusinessSlug(business.id);
+                          const updated = await getBusinessById(business.id);
+                          setBusiness(updated);
+                          setSlugInput('');
+                          setSlugStatus({ state: 'idle' });
+                        } catch (e) {
+                          console.error(e);
+                          alert('Failed to clear address');
+                        }
+                      }}
+                    >
+                      Remove custom address
+                    </button>
+                  )}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">3–30 characters: letters, numbers, and hyphens. No leading or trailing hyphens.</div>
+              </div>
+
+              {/* QR code */}
+              <div className="mt-4">
+                <label className="block text-sm mb-2">Share via QR code</label>
+                <div className="flex flex-col md:flex-row md:items-center gap-3">
+                  <div className="border rounded p-2 bg-white inline-flex items-center justify-center w-[160px] h-[160px]">
+                    {qrPreview ? (
+                      <img width={144} height={144} alt="Storefront QR" src={qrPreview} />
+                    ) : (
+                      <div className="text-xs text-gray-500">{qrGenerating ? 'Generating…' : 'No QR'}</div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="text-sm px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50"
+                      disabled={!business}
+                      onClick={async () => {
+                        try {
+                          const url = (typeof window !== 'undefined' ? window.location.origin : '') + `/store/${business.slug || business.id}`;
+                          const dataUrl = await QRCode.toDataURL(url, { width: 1024, margin: 2, errorCorrectionLevel: 'M' });
+                          const a = document.createElement('a');
+                          a.href = dataUrl;
+                          a.download = `store-${business.slug || business.id}.png`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                        } catch (e) {
+                          console.error('QR download failed', e);
+                          alert('Failed to generate QR');
+                        }
+                      }}
+                    >
+                      Download PNG
+                    </button>
+                    <span className="text-xs text-gray-500">High‑res PNG suitable for printing</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        )}
+      </section>
+
+      {/* Payments setup (moved below Landing page) */}
+      <section className="mt-6">
+        <div
+          className="flex items-center justify-between bg-white p-4 rounded shadow cursor-pointer"
+          onClick={() => setShowPaymentsSection((v) => !v)}
+        >
+          <h2 className="text-xl font-semibold">Payments</h2>
+          <span className="text-blue-600">{showPaymentsSection ? "Hide" : "Show"}</span>
+        </div>
+        {showPaymentsSection && (
+          <div className="mt-2 bg-white p-4 rounded shadow">
+            {!business && <p className="text-sm text-gray-600">No business found.</p>}
+            {business && (
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  try {
+                    const payoutEmail = (paymentForm.payoutEmail || "").trim();
+                    const linkUrl = (paymentForm.linkUrl || "").trim();
+                    const method = (paymentForm.method || "").trim();
+                    const notes = (paymentForm.notes || "").trim();
+                    await updateBusiness(business.id, {
+                      payment: { method, payoutEmail, linkUrl, notes },
+                    });
+                    const updated = await getBusinessById(business.id);
+                    setBusiness(updated);
+                    alert("Payment info saved");
+                  } catch (e) {
+                    console.error(e);
+                    alert("Failed to save payment info");
+                  }
+                }}
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm mb-1">Preferred method</label>
+                    <select
+                      className="border p-2 rounded w-full"
+                      value={paymentForm.method}
+                      onChange={(e) => setPaymentForm({ ...paymentForm, method: e.target.value })}
+                    >
+                      <option value="">Select…</option>
+                      <option value="Stripe">Stripe</option>
+                      <option value="PayPal">PayPal</option>
+                      <option value="Cash App">Cash App</option>
+                      <option value="Bank Transfer">Bank Transfer</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1">Payout email</label>
+                    <input
+                      type="email"
+                      className="border p-2 rounded w-full"
+                      placeholder="you@payments.com"
+                      value={paymentForm.payoutEmail}
+                      onChange={(e) => setPaymentForm({ ...paymentForm, payoutEmail: e.target.value })}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm mb-1">Payment link (optional)</label>
+                    <input
+                      type="url"
+                      className="border p-2 rounded w-full"
+                      placeholder="https://pay.yourlink.com/… or https://paypal.me/yourname"
+                      value={paymentForm.linkUrl}
+                      onChange={(e) => setPaymentForm({ ...paymentForm, linkUrl: e.target.value })}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm mb-1">Notes for customers (optional)</label>
+                    <textarea
+                      className="border p-2 rounded w-full"
+                      rows={3}
+                      placeholder="e.g., We’ll email an invoice, or include your order ID in the payment reference."
+                      value={paymentForm.notes}
+                      onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <button type="submit" className="bg-green-600 text-white px-3 py-1 rounded">Save</button>
+                  <button
+                    type="button"
+                    className="bg-gray-400 text-white px-3 py-1 rounded"
+                    onClick={() => {
+                      const pay = business?.payment || {};
+                      setPaymentForm({
+                        method: pay.method || "",
+                        payoutEmail: pay.payoutEmail || "",
+                        linkUrl: pay.linkUrl || "",
+                        notes: pay.notes || "",
+                      });
+                      setShowPaymentsSection(false);
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">We store this info in your business profile so you can share it in conversations with customers or future checkout flows.</p>
+              </form>
+            )}
+          </div>
+        )}
+      </section>
     </div>
+    <ContactAdminModal
+      isOpen={showContactAdmin}
+      onClose={() => setShowContactAdmin(false)}
+      userId={user?.uid}
+      businessId={business?.id}
+      defaultEmail={user?.email || ""}
+    />
+  </>
   );
 }

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Modal from "./Modal";
 import { registerUser, sendVerificationEmail } from "../lib/auth";
-import { addBusiness, setUserProfile } from "../lib/firestore";
+import { ensureBusinessForUser, setUserProfile } from "../lib/firestore";
 import { useAuth } from "../context/AuthContext";
 
 export default function RegisterModal() {
@@ -23,11 +23,8 @@ export default function RegisterModal() {
       } catch (e) {
         console.warn("Failed to send verification email immediately after registration", e);
       }
-      const defaultBusiness = {
-        name: `${email.split("@")[0]}'s Shop`,
-        description: "Welcome to my store!",
-      };
-      const businessId = await addBusiness(defaultBusiness, user);
+      const defaultBusiness = { name: `${email.split("@")[0]}'s Shop`, description: "Welcome to my store!" };
+      const businessId = await ensureBusinessForUser(user, defaultBusiness);
       await setUserProfile(user.uid, { primaryBusinessId: businessId });
       navigate("/verify-email");
     } catch (err) {
