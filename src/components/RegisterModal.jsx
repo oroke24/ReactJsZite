@@ -1,13 +1,16 @@
 import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import Modal from "./Modal";
 import { registerUser, sendVerificationEmail } from "../lib/auth";
 import { addBusiness, setUserProfile } from "../lib/firestore";
+import { useAuth } from "../context/AuthContext";
 
-export default function Register() {
+export default function RegisterModal() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -20,15 +23,12 @@ export default function Register() {
       } catch (e) {
         console.warn("Failed to send verification email immediately after registration", e);
       }
-      // create a default business tied to the new user
       const defaultBusiness = {
         name: `${email.split("@")[0]}'s Shop`,
         description: "Welcome to my store!",
       };
       const businessId = await addBusiness(defaultBusiness, user);
-      // persist primary business id on the user profile so other pages can find it
       await setUserProfile(user.uid, { primaryBusinessId: businessId });
-      // redirect to verification page
       navigate("/verify-email");
     } catch (err) {
       console.error(err);
@@ -38,14 +38,11 @@ export default function Register() {
     }
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white p-8 rounded-lg shadow-md w-80"
-      >
-        <h2 className="text-2xl font-bold mb-6 text-center">Register</h2>
+  if (user) return null;
 
+  return (
+    <Modal title="Register" onClose={() => navigate("/") }>
+      <form onSubmit={handleSubmit} className="w-80 mx-auto">
         <input
           type="email"
           placeholder="Email"
@@ -54,7 +51,6 @@ export default function Register() {
           className="border p-2 w-full mb-3 rounded"
           required
         />
-
         <input
           type="password"
           placeholder="Password (min 6 chars)"
@@ -63,24 +59,24 @@ export default function Register() {
           className="border p-2 w-full mb-4 rounded"
           required
         />
-
         <button
           type="submit"
           disabled={loading}
-          className={`w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 transition ${
-            loading ? "opacity-50" : ""
-          }`}
+          className={`w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 transition ${loading ? "opacity-50" : ""}`}
         >
           {loading ? "Creating..." : "Register"}
         </button>
-
         <p className="text-sm text-center mt-4">
           Already have an account?{" "}
-          <Link to="/login" className="text-blue-600 hover:underline">
+          <button
+            type="button"
+            onClick={() => navigate("/login")}
+            className="text-blue-600 hover:underline"
+          >
             Login
-          </Link>
+          </button>
         </p>
       </form>
-    </div>
+    </Modal>
   );
 }

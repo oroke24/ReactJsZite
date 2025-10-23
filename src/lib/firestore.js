@@ -7,6 +7,10 @@ import {
   where,
   doc,
   updateDoc,
+  setDoc,
+  deleteDoc,
+  writeBatch,
+  orderBy,
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 
@@ -39,4 +43,78 @@ export async function getBusinessById(id) {
 export async function updateBusiness(businessId, updates) {
   const ref = doc(db, "businesses", businessId);
   await updateDoc(ref, updates);
+}
+
+// --- User profile helpers ---
+export async function setUserProfile(uid, profile) {
+  const ref = doc(db, "users", uid);
+  await setDoc(ref, profile, { merge: true });
+}
+
+export async function getUserProfile(uid) {
+  const ref = doc(db, "users", uid);
+  const snap = await getDoc(ref);
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+}
+
+// --- Business collections (for categories, menus, etc) ---
+export async function addCollection(businessId, collectionData) {
+  const ref = collection(db, "businesses", businessId, "collections");
+  const docRef = await addDoc(ref, { ...collectionData, createdAt: new Date() });
+  return docRef.id;
+}
+
+export async function getCollections(businessId) {
+  const ref = collection(db, "businesses", businessId, "collections");
+  // Prefer server-side ordering by 'order' ascending when available
+  const q = query(ref, orderBy("order", "asc"));
+  const snapshot = await getDocs(q);
+  const rows = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+  // Fallback: ensure a stable sort when some docs might not have 'order'
+  return rows
+    .slice()
+    .sort((a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER) || (a.name || "").localeCompare(b.name || ""));
+}
+
+export async function updateCollection(businessId, collectionId, updates) {
+  const ref = doc(db, "businesses", businessId, "collections", collectionId);
+  await updateDoc(ref, updates);
+}
+
+export async function deleteCollection(businessId, collectionId) {
+  const ref = doc(db, "businesses", businessId, "collections", collectionId);
+
+  // First, delete membership docs under this collection (subcollections: products, services)
+  const colProductsRef = collection(db, "businesses", businessId, "collections", collectionId, "products");
+  const colServicesRef = collection(db, "businesses", businessId, "collections", collectionId, "services");
+  const colItemsRef = collection(db, "businesses", businessId, "collections", collectionId, "items");
+  const [colProdSnap, colSvcSnap, colItemSnap] = await Promise.all([getDocs(colProductsRef), getDocs(colServicesRef), getDocs(colItemsRef)]);
+  const batch1 = writeBatch(db);
+  colProdSnap.docs.forEach((d) => batch1.delete(d.ref));
+  colSvcSnap.docs.forEach((d) => batch1.delete(d.ref));
+  colItemSnap.docs.forEach((d) => batch1.delete(d.ref));
+  if (colProdSnap.docs.length > 0 || colSvcSnap.docs.length > 0 || colItemSnap.docs.length > 0) {
+    await batch1.commit();
+  }
+
+  // Then hard delete the collection document itself
+  await deleteDoc(ref);
+}
+
+// --- Collection membership helpers ---
+export async function getCollectionMembers(businessId, collectionId, type) {
+  const ref = collection(db, "businesses", businessId, "collections", collectionId, type); // type: 'products' | 'services'
+  const snap = await getDocs(ref);
+  return snap.docs.map((d) => d.id);
+}
+
+export async function addCollectionMember(businessId, collectionId, type, itemId) {
+  // store membership doc id as the item id for idempotency
+  const ref = doc(db, "businesses", businessId, "collections", collectionId, type, itemId);
+  await setDoc(ref, { createdAt: new Date() }, { merge: true });
+}
+
+export async function removeCollectionMember(businessId, collectionId, type, itemId) {
+  const ref = doc(db, "businesses", businessId, "collections", collectionId, type, itemId);
+  await deleteDoc(ref);
 }

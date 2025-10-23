@@ -2,9 +2,9 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage
 import { storage } from "../firebaseConfig";
 
 /** Upload a new image for a business */
-export async function uploadImage(file, businessId) {
+export async function uploadImage(file, businessId, folder = "products") {
   if (!file) return null;
-  const fileRef = ref(storage, `products/${businessId}/${Date.now()}_${file.name}`);
+  const fileRef = ref(storage, `${folder}/${businessId}/${Date.now()}_${file.name}`);
   await uploadBytes(fileRef, file);
   return await getDownloadURL(fileRef);
 }
@@ -21,10 +21,10 @@ export async function deleteImageByUrl(url) {
 }
 
 /** Replace image (uploads new and removes old) */
-export async function replaceImage(file, businessId, oldUrl) {
+export async function replaceImage(file, businessId, oldUrl, folder = "products") {
   if (!file) return oldUrl || null;
 
-  const newUrl = await uploadImage(file, businessId);
+  const newUrl = await uploadImage(file, businessId, folder);
 
   if (oldUrl) {
     await deleteImageByUrl(oldUrl);

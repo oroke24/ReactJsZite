@@ -1,16 +1,41 @@
-# React + Vite
+# Zite — Shopify-like storefront (React + Firebase)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Zite is a minimal Shopify-like app built with React and Firebase. Users register/login, a default business is created automatically, and they can manage collections and items from a dashboard. The public storefront displays items grouped by collections.
 
-Currently, two official plugins are available:
+## Overview
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- Tech: React (Vite), React Router, Firebase (Auth, Firestore, Storage), Tailwind v4.
+- Auth: On registration, a default business is created and stored under `users/{uid}.primaryBusinessId`.
+- Data model (Firestore):
+	- `businesses/{businessId}` — business profile (name, description, contact fields, optional backgroundColor for storefront, optional imageUrl)
+	- `businesses/{businessId}/items` — all sellable items (single unified collection)
+	- `businesses/{businessId}/collections` — collections with optional description and backgroundColor (hex)
+	- `businesses/{businessId}/collections/{collectionId}/items/{itemId}` — membership docs (item belongs to collection)
 
-## React Compiler
+Items can belong to multiple collections via membership docs. The storefront renders sections per collection and lists its member items. Each collection can include an optional description and background color that appear on the storefront.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Key routes
 
-## Expanding the ESLint configuration
+- `src/pages/Register.jsx` — registers user and initializes default business
+- `src/pages/Account.jsx` — edit business profile (name/description/contact)
+- `src/pages/Dashboard.jsx` — manage collections and items
+- `src/pages/Storefront.jsx` — public storefront grouped by collections
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Components and libs
+
+- `src/components/ItemManager.jsx` — CRUD for items (with image upload)
+- `src/components/CollectionsManager.jsx` — create/delete collections, edit collection description, and manage item membership
+- `src/lib/items.js` — Firestore helpers for items
+- `src/lib/firestore.js` — business, user profile, and collections helpers
+
+Note: The project has been fully refactored to an items-only model. Any legacy product/services files are no longer used and can be safely removed.
+
+## Development
+
+- Start dev server: `npm run dev`
+- Build for production: `npm run build`
+- Preview build: `npm run preview`
+
+Ensure Firebase config is set in `src/firebaseConfig.js` and your Firestore/Storage security rules are aligned with the paths above.
+The business image (imageUrl) can be uploaded/updated/cleared from the Account page and displays on the Storefront header.
+Business and collection backgrounds are optional; clearing the color removes the field from Firestore.

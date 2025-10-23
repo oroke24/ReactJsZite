@@ -3,11 +3,15 @@ import { Routes, Route, Link, Navigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import Home from "./pages/Home";
 import Storefront from "./pages/Storefront";
+import ItemDetail from "./pages/ItemDetail";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import About from "./pages/About";
 import Account from "./pages/Account"
+import VerifyEmail from "./pages/VerifyEmail";
+import LoginModal from "./components/LoginModal";
+import RegisterModal from "./components/RegisterModal";
 
 export default function App() {
   const { user, loading, logout } = useAuth();
@@ -66,13 +70,41 @@ export default function App() {
         <Routes>
           {/* Public pages */}
           <Route path="/" element={<Home />} />
-          <Route path="/login" element={!user ? <Login /> : <Navigate to="/account" replace />} />
-          <Route path="/register" element={!user ? <Register /> : <Navigate to="/account" replace />} />
+          {/* Show Home in the background with auth modals overlaid */}
+          <Route
+            path="/login"
+            element={
+              !user ? (
+                <>
+                  <Home />
+                  <LoginModal />
+                </>
+              ) : (
+                <Navigate to={user?.emailVerified ? "/account" : "/verify-email"} replace />
+              )
+            }
+          />
+          <Route
+            path="/register"
+            element={
+              !user ? (
+                <>
+                  <Home />
+                  <RegisterModal />
+                </>
+              ) : (
+                <Navigate to={user?.emailVerified ? "/account" : "/verify-email"} replace />
+              )
+            }
+          />
+          <Route path="/verify-email" element={user && !user.emailVerified ? <VerifyEmail /> : <Navigate to={user ? "/account" : "/login"} replace />} />
 
           {/* Protected route */}
-          <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/" replace />} />
-          <Route path="/store" element={user ? <Storefront /> : <Navigate to="/" replace/>} />
-          <Route path="/account" element={user ? <Account/> : <Navigate to="/" replace/>} />
+          <Route path="/dashboard" element={user ? (user.emailVerified ? <Dashboard /> : <Navigate to="/verify-email" replace />) : <Navigate to="/" replace />} />
+          <Route path="/store" element={user ? (user.emailVerified ? <Storefront /> : <Navigate to="/verify-email" replace />) : <Navigate to="/" replace/>} />
+          <Route path="/store/item/:itemId" element={user ? <ItemDetail /> : <Navigate to="/" replace/>} />
+          <Route path="/store/:businessId/item/:itemId" element={user ? <ItemDetail /> : <Navigate to="/" replace/>} />
+          <Route path="/account" element={user ? (user.emailVerified ? <Account/> : <Navigate to="/verify-email" replace />) : <Navigate to="/" replace/>} />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import Modal from "./Modal";
 import { loginUser, resetPassword } from "../lib/auth";
 import { useAuth } from "../context/AuthContext";
 
-export default function Login() {
+export default function LoginModal() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -42,16 +43,11 @@ export default function Login() {
     }
   };
 
-  if (user) return navigate("/dashboard");
+  if (user) return null;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white p-8 rounded-lg shadow-md w-80"
-      >
-        <h2 className="text-2xl font-bold mb-6 text-center">Login</h2>
-
+    <Modal title="Login" onClose={() => navigate("/") }>
+      <form onSubmit={handleSubmit} className="w-80 mx-auto">
         <input
           type="email"
           placeholder="Email"
@@ -60,7 +56,6 @@ export default function Login() {
           className="border p-2 w-full mb-3 rounded"
           required
         />
-
         <input
           type="password"
           placeholder="Password"
@@ -69,17 +64,13 @@ export default function Login() {
           className="border p-2 w-full mb-4 rounded"
           required
         />
-
         <button
           type="submit"
           disabled={loading}
-          className={`w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition ${
-            loading ? "opacity-50" : ""
-          }`}
+          className={`w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition ${loading ? "opacity-50" : ""}`}
         >
           {loading ? "Logging in..." : "Login"}
         </button>
-
         <button
           type="button"
           onClick={handleForgotPassword}
@@ -88,14 +79,17 @@ export default function Login() {
         >
           {resetting ? "Sending reset…" : "Forgot password?"}
         </button>
-
         <p className="text-sm text-center mt-4">
           Don’t have an account?{" "}
-          <Link to="/register" className="text-blue-600 hover:underline">
+          <button
+            type="button"
+            onClick={() => navigate("/register")}
+            className="text-blue-600 hover:underline"
+          >
             Register
-          </Link>
+          </button>
         </p>
       </form>
-    </div>
+    </Modal>
   );
 }

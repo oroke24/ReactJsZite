@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { addBusiness } from "../lib/firestore";
+import { addBusiness, getBusinessesByUser, updateBusiness } from "../lib/firestore";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 
 export default function BusinessSetup() {
   const { user } = useAuth();
@@ -14,8 +15,15 @@ export default function BusinessSetup() {
     if (!user) return alert("You must be logged in.");
     setLoading(true);
     try {
-      const id = await addBusiness(business, user);
-      alert("Business created!");
+      if (business.id) {
+        // update existing business
+        const updates = { name: business.name, description: business.description };
+        await updateBusiness(business.id, updates);
+        alert("Business updated!");
+      } else {
+        await addBusiness(business, user);
+        alert("Business created!");
+      }
       navigate(`/dashboard`);
     } catch (err) {
       console.error(err);
@@ -24,6 +32,24 @@ export default function BusinessSetup() {
       setLoading(false);
     }
   };
+
+  // load existing business for user
+  useEffect(() => {
+    const load = async () => {
+      if (!user) return;
+      try {
+        const businesses = await getBusinessesByUser(user.uid);
+        if (businesses && businesses.length > 0) {
+          // take the first business for now
+          const b = businesses[0];
+          setBusiness({ id: b.id, name: b.name || "", description: b.description || "" });
+        }
+      } catch (err) {
+        console.error("Failed to load business:", err);
+      }
+    };
+    load();
+  }, [user]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
