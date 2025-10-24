@@ -76,8 +76,9 @@ app.post('/stripe/createAccount', verifyAuth, ensureOwner, async (req, res) => {
     await db.doc(`businesses/${businessId}`).set({ payment: { ...(pay || {}), stripeAccountId: acct.id, method: 'Stripe' } }, { merge: true });
     res.json({ stripeAccountId: acct.id });
   } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: 'createAccount failed' });
+    console.error('createAccount error', e);
+    const msg = (e && e.message) ? e.message : 'createAccount failed';
+    res.status(500).json({ error: msg });
   }
 });
 // Duplicate route with /api prefix for Hosting rewrites
