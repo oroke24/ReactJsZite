@@ -7,6 +7,7 @@ import { updateBusiness } from "../lib/firestore";
 import { replaceImage, deleteImageByUrl } from "../lib/uploadImage";
 import QRCode from "qrcode";
 import ContactAdminModal from "../components/ContactAdminModal";
+import { createStripeAccount, createStripeAccountLink, syncStripeAccount } from "../lib/stripeApi";
 
 export default function Account() {
   const { user } = useAuth();
@@ -26,7 +27,7 @@ export default function Account() {
   const [slugStatus, setSlugStatus] = useState({ state: "idle" }); // idle|checking|available|taken|invalid|reserved|error
   const [qrPreview, setQrPreview] = useState("");
   const [qrGenerating, setQrGenerating] = useState(false);
-  const [paymentForm, setPaymentForm] = useState({ method: "", payoutEmail: "", linkUrl: "", notes: "" });
+  const [paymentForm, setPaymentForm] = useState({ stripeAccountId: "", chargesEnabled: false, onboardingComplete: false, payoutsEnabled: false });
 
   useEffect(() => {
     const load = async () => {
@@ -40,10 +41,10 @@ export default function Account() {
           setSlugStatus({ state: "idle" });
           const pay = b?.payment || {};
           setPaymentForm({
-            method: pay.method || "",
-            payoutEmail: pay.payoutEmail || "",
-            linkUrl: pay.linkUrl || "",
-            notes: pay.notes || "",
+            stripeAccountId: pay.stripeAccountId || "",
+            chargesEnabled: !!pay.chargesEnabled,
+            onboardingComplete: !!pay.onboardingComplete,
+            payoutsEnabled: !!pay.payoutsEnabled,
           });
         }
       } catch (err) {
@@ -150,10 +151,10 @@ export default function Account() {
     if (!showPaymentsSection || !business) return;
     const pay = business?.payment || {};
     setPaymentForm({
-      method: pay.method || "",
-      payoutEmail: pay.payoutEmail || "",
-      linkUrl: pay.linkUrl || "",
-      notes: pay.notes || "",
+      stripeAccountId: pay.stripeAccountId || "",
+      chargesEnabled: !!pay.chargesEnabled,
+      onboardingComplete: !!pay.onboardingComplete,
+      payoutsEnabled: !!pay.payoutsEnabled,
     });
   }, [showPaymentsSection, business]);
 
@@ -254,7 +255,6 @@ export default function Account() {
                     await updateBusiness(business.id, updates);
                     const updated = await getBusinessById(business.id);
                     setBusiness(updated);
-                    setEditing(false);
                     alert("Business updated");
                   } catch (err) {
                     console.error(err);
@@ -435,7 +435,7 @@ export default function Account() {
           className="flex items-center justify-between bg-white p-4 rounded shadow cursor-pointer"
           onClick={() => setShowLandingSection((v) => !v)}
         >
-          <h2 className="text-xl font-semibold">Landing page</h2>
+          <h2 className="text-xl font-semibold">Landing page + QR Code</h2>
           <span className="text-blue-600">{showLandingSection ? "Hide" : "Show"}</span>
         </div>
         {showLandingSection && (
@@ -594,107 +594,137 @@ export default function Account() {
         )}
       </section>
 
-      {/* Payments setup (moved below Landing page) */}
+      {/* Stripe Payments setup (moved below Landing page) */}
       <section className="mt-6">
         <div
           className="flex items-center justify-between bg-white p-4 rounded shadow cursor-pointer"
           onClick={() => setShowPaymentsSection((v) => !v)}
         >
-          <h2 className="text-xl font-semibold">Payments</h2>
+          <h2 className="text-xl font-semibold">Stripe Payments</h2>
           <span className="text-blue-600">{showPaymentsSection ? "Hide" : "Show"}</span>
         </div>
         {showPaymentsSection && (
           <div className="mt-2 bg-white p-4 rounded shadow">
             {!business && <p className="text-sm text-gray-600">No business found.</p>}
             {business && (
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  try {
-                    const payoutEmail = (paymentForm.payoutEmail || "").trim();
-                    const linkUrl = (paymentForm.linkUrl || "").trim();
-                    const method = (paymentForm.method || "").trim();
-                    const notes = (paymentForm.notes || "").trim();
-                    await updateBusiness(business.id, {
-                      payment: { method, payoutEmail, linkUrl, notes },
-                    });
-                    const updated = await getBusinessById(business.id);
-                    setBusiness(updated);
-                    alert("Payment info saved");
-                  } catch (e) {
-                    console.error(e);
-                    alert("Failed to save payment info");
-                  }
-                }}
-              >
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm mb-1">Preferred method</label>
-                    <select
-                      className="border p-2 rounded w-full"
-                      value={paymentForm.method}
-                      onChange={(e) => setPaymentForm({ ...paymentForm, method: e.target.value })}
+              <div>
+                {/* Stripe setup instructions */}
+                <div className="mb-4 rounded border border-blue-100 bg-blue-50 p-3 text-sm text-blue-900">
+                  <p className="mb-2 font-medium">Connect your Stripe account</p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li>
+                      Click <span className="font-medium">Connect with Stripe</span> below to create a connected account for this business and complete onboarding.
+                    </li>
+                    <li>
+                      Don’t paste an account ID here—this app requires a <span className="font-medium">connected</span> acct_ created via the Connect flow.
+                    </li>
+                    <li>
+                      After onboarding, use <span className="font-medium">Refresh status</span> to sync “Charges enabled” and “Payouts enabled”.
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Stripe actions */}
+                <div className="flex flex-wrap items-center gap-2 mb-4">
+                  {!paymentForm.stripeAccountId && (
+                    <button
+                      type="button"
+                      className="px-3 py-1 rounded bg-purple-600 text-white hover:bg-purple-700"
+                      onClick={async () => {
+                        try {
+                          const businessId = business.id;
+                          await createStripeAccount(businessId);
+                          const ret = new URL(window.location.href);
+                          ret.hash = 'stripe';
+                          const { url } = await createStripeAccountLink(businessId, ret.toString());
+                          window.location.assign(url);
+                        } catch (e) {
+                          console.error(e);
+                          alert(`Failed to start Stripe onboarding: ${e?.message || 'Unknown error'}`);
+                        }
+                      }}
                     >
-                      <option value="">Select…</option>
-                      <option value="Stripe">Stripe</option>
-                      <option value="PayPal">PayPal</option>
-                      <option value="Cash App">Cash App</option>
-                      <option value="Bank Transfer">Bank Transfer</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm mb-1">Payout email</label>
-                    <input
-                      type="email"
-                      className="border p-2 rounded w-full"
-                      placeholder="you@payments.com"
-                      value={paymentForm.payoutEmail}
-                      onChange={(e) => setPaymentForm({ ...paymentForm, payoutEmail: e.target.value })}
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm mb-1">Payment link (optional)</label>
-                    <input
-                      type="url"
-                      className="border p-2 rounded w-full"
-                      placeholder="https://pay.yourlink.com/… or https://paypal.me/yourname"
-                      value={paymentForm.linkUrl}
-                      onChange={(e) => setPaymentForm({ ...paymentForm, linkUrl: e.target.value })}
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm mb-1">Notes for customers (optional)</label>
-                    <textarea
-                      className="border p-2 rounded w-full"
-                      rows={3}
-                      placeholder="e.g., We’ll email an invoice, or include your order ID in the payment reference."
-                      value={paymentForm.notes}
-                      onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
-                    />
-                  </div>
+                      Connect with Stripe
+                    </button>
+                  )}
+                  {paymentForm.stripeAccountId && !paymentForm.onboardingComplete && (
+                    <button
+                      type="button"
+                      className="px-3 py-1 rounded bg-purple-600 text-white hover:bg-purple-700"
+                      onClick={async () => {
+                        try {
+                          const businessId = business.id;
+                          const ret = new URL(window.location.href);
+                          ret.hash = 'stripe';
+                          const { url } = await createStripeAccountLink(businessId, ret.toString());
+                          window.location.assign(url);
+                        } catch (e) {
+                          console.error(e);
+                          alert(`Failed to continue Stripe setup: ${e?.message || 'Unknown error'}`);
+                        }
+                      }}
+                    >
+                      Continue Stripe setup
+                    </button>
+                  )}
+                  {paymentForm.stripeAccountId && (
+                    <>
+                      <button
+                        type="button"
+                        className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300"
+                        onClick={async () => {
+                          try {
+                            const flags = await syncStripeAccount(business.id);
+                            setPaymentForm((prev) => ({ ...prev, ...flags }));
+                            // also refresh business state to keep others in sync
+                            const updated = await getBusinessById(business.id);
+                            setBusiness(updated);
+                          } catch (e) {
+                            console.error(e);
+                            alert(`Failed to refresh status: ${e?.message || 'Unknown error'}`);
+                          }
+                        }}
+                      >
+                        Refresh status
+                      </button>
+                    </>
+                  )}
                 </div>
-                <div className="flex gap-2 mt-4">
-                  <button type="submit" className="bg-green-600 text-white px-3 py-1 rounded">Save</button>
-                  <button
-                    type="button"
-                    className="bg-gray-400 text-white px-3 py-1 rounded"
-                    onClick={() => {
-                      const pay = business?.payment || {};
-                      setPaymentForm({
-                        method: pay.method || "",
-                        payoutEmail: pay.payoutEmail || "",
-                        linkUrl: pay.linkUrl || "",
-                        notes: pay.notes || "",
-                      });
-                      setShowPaymentsSection(false);
-                    }}
-                  >
-                    Cancel
-                  </button>
+                {/* Stripe status flags (read-only badges) */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium mb-1">Status</label>
+                  <div className="flex flex-col md:flex-row md:items-start gap-4">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-700">Charges enabled</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${paymentForm.chargesEnabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'}`}>
+                          {paymentForm.chargesEnabled ? 'Enabled' : 'Disabled'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-500">Indicates whether your account can accept payments.</div>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-700">Onboarding complete</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${paymentForm.onboardingComplete ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'}`}>
+                          {paymentForm.onboardingComplete ? 'Complete' : 'Incomplete'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-500">You've submitted required details to Stripe.</div>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-700">Payouts enabled</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${paymentForm.payoutsEnabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'}`}>
+                          {paymentForm.payoutsEnabled ? 'Enabled' : 'Disabled'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-500">Allows transfers to your bank account.</div>
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">These values are synced from Stripe and not editable here.</div>
                 </div>
-                <p className="text-xs text-gray-500 mt-2">We store this info in your business profile so you can share it in conversations with customers or future checkout flows.</p>
-              </form>
+              </div>
             )}
           </div>
         )}

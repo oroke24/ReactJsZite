@@ -1,20 +1,23 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getUserProfile, getBusinessById, getBusinessIdBySlug } from "../lib/firestore";
 import { getItemById } from "../lib/items";
 import { addOrder } from "../lib/orders";
+import { createPublicCheckoutSession } from "../lib/stripeApi";
 
 export default function ItemDetail() {
   const { businessId: routeBusinessId, itemId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const location = useLocation();
   const [businessId, setBusinessId] = useState(routeBusinessId || null);
   const [business, setBusiness] = useState(null);
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [justPaid, setJustPaid] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -57,6 +60,16 @@ export default function ItemDetail() {
     load();
   }, [routeBusinessId, user, itemId]);
 
+  // Detect Stripe redirect success
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(location.search || "");
+      setJustPaid(params.get("paid") === "1");
+    } catch {
+      /* ignore parse errors */
+    }
+  }, [location.search]);
+
 
   // Close modal on Escape
   useEffect(() => {
@@ -75,8 +88,19 @@ export default function ItemDetail() {
     return (isNaN(p) || isNaN(q)) ? 0 : p * q;
   }, [item, form.quantity]);
 
-  const submitOrder = async (e) => {
-    e.preventDefault();
+  const hasStripe = !!(business?.payment?.stripeAccountId && business?.payment?.chargesEnabled);
+
+  const isFormValid = useMemo(() => {
+    if (!form.name || !form.email) return false;
+    const qty = parseInt(form.quantity || 1, 10);
+    if (!(qty >= 1)) return false;
+    if (item?.requireAddress) {
+      return !!(form.address1 && form.city && form.region && form.postalCode && form.country);
+    }
+    return true;
+  }, [form, item?.requireAddress]);
+
+  const submitOrder = async () => {
     if (!businessId || !item) return;
     setSubmitting(true);
     try {
@@ -104,13 +128,52 @@ export default function ItemDetail() {
         status: "requested",
       };
       const id = await addOrder(businessId, order);
-      alert(`Purchase request submitted! Order ID: ${id}`);
+      alert(`Request submitted! Order ID: ${id}`);
       setForm({ name: "", email: "", quantity: 1, notes: "", address1: "", address2: "", city: "", region: "", postalCode: "", country: "" });
     } catch (e) {
       console.error(e);
       alert("Failed to submit order");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleStripeCheckout = async () => {
+    if (!businessId || !item) return;
+    try {
+      // Create an order to track payment
+      const shippingAddress = item.requireAddress
+        ? {
+            address1: form.address1,
+            address2: form.address2 || "",
+            city: form.city,
+            region: form.region,
+            postalCode: form.postalCode,
+            country: form.country,
+          }
+        : undefined;
+      const order = {
+        itemId: item.id,
+        itemName: item.name,
+        unitPrice: parseFloat(item.price || 0),
+        quantity: parseInt(form.quantity || 1, 10),
+        total: price,
+        buyerName: form.name,
+        buyerEmail: form.email,
+        notes: form.notes || "",
+        ...(shippingAddress ? { shippingAddress } : {}),
+        status: "pending-payment",
+      };
+      const orderId = await addOrder(businessId, order);
+      const slugOrId = business?.slug || businessId;
+      const successUrl = `${window.location.origin}/store/${slugOrId}/item/${itemId}?paid=1`;
+      const cancelUrl = `${window.location.origin}/store/${slugOrId}/item/${itemId}`;
+      const { url } = await createPublicCheckoutSession(businessId, { orderId, itemId, quantity: parseInt(form.quantity || 1, 10), successUrl, cancelUrl, customerEmail: form.email });
+      window.location.assign(url);
+    } catch (e) {
+      console.error('Stripe Checkout error', e);
+      const details = e?.body?.error || e?.message || 'Unknown error';
+      alert(`Failed to start Stripe Checkout: ${details}`);
     }
   };
 
@@ -151,6 +214,12 @@ export default function ItemDetail() {
         )}
       </div>
 
+      {justPaid && (
+        <div className="mb-4 p-3 rounded bg-green-50 text-green-800 border border-green-200 text-sm">
+          Payment complete. Thank you for your order!
+        </div>
+      )}
+
       <div className="space-y-6">
         <div>
           {item.imageUrl && (
@@ -168,7 +237,7 @@ export default function ItemDetail() {
 
         <div className="p-4 border rounded bg-white shadow">
           <div className="text-xl font-semibold">${item.price}</div>
-          <form className="mt-4 space-y-3" onSubmit={submitOrder}>
+          <form className="mt-4 space-y-3" onSubmit={(e) => { e.preventDefault(); if (!hasStripe) { submitOrder(); } }}>
             <div>
               <label className="block text-sm mb-1">Your name</label>
               <input className="border p-2 rounded w-full" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
@@ -218,11 +287,18 @@ export default function ItemDetail() {
               <label className="block text-sm mb-1">Notes (optional)</label>
               <textarea className="border p-2 rounded w-full" rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             </div>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="text-sm text-gray-700">Total: <span className="font-semibold">${price.toFixed(2)}</span></div>
-              <button type="submit" disabled={submitting} className={`bg-green-600 text-white px-4 py-2 rounded ${submitting ? 'opacity-50' : ''}`}>
-                {submitting ? 'Submitting…' : 'Purchase'}
-              </button>
+              {!hasStripe && (
+                <button type="submit" disabled={submitting || !isFormValid} className={`bg-green-600 text-white px-4 py-2 rounded ${submitting || !isFormValid ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                  {submitting ? 'Submitting…' : 'Send request'}
+                </button>
+              )}
+              {hasStripe && (
+                <button type="button" disabled={!isFormValid} onClick={handleStripeCheckout} className={`bg-purple-600 text-white px-4 py-2 rounded ${!isFormValid ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                  Pay with Stripe
+                </button>
+              )}
             </div>
           </form>
         </div>

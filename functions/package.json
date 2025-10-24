@@ -1,0 +1,19 @@
+{
+  "name": "functions",
+  "private": true,
+  "type": "module",
+  "engines": { "node": "20" },
+  "main": "index.js",
+  "scripts": {
+    "serve": "firebase emulators:start --only functions,hosting",
+    "deploy": "firebase deploy --only functions",
+    "build": "echo 'No build step'"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "firebase-admin": "^12.5.0",
+    "firebase-functions": "^5.0.1",
+    "stripe": "^16.8.0",
+    "express": "^4.19.2"
+  }
+}
