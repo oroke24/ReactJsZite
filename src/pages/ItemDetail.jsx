@@ -235,57 +235,57 @@ export default function ItemDetail() {
           <p className="mt-3 text-gray-800 whitespace-pre-wrap">{item.description}</p>
         </div>
 
-        <div className="p-4 border rounded bg-white shadow">
+        <div className="p-4 border rounded bg-white shadow text-gray-900">
           <div className="text-xl font-semibold">${item.price}</div>
           <form className="mt-4 space-y-3" onSubmit={(e) => { e.preventDefault(); if (!hasStripe) { submitOrder(); } }}>
             <div>
-              <label className="block text-sm mb-1">Your name</label>
-              <input className="border p-2 rounded w-full" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+              <label className="block text-sm mb-1 text-gray-700">Your name</label>
+              <input className="border p-2 rounded w-full text-gray-900 placeholder-gray-500" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
             </div>
             <div>
-              <label className="block text-sm mb-1">Email</label>
-              <input type="email" className="border p-2 rounded w-full" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
+              <label className="block text-sm mb-1 text-gray-700">Email</label>
+              <input type="email" className="border p-2 rounded w-full text-gray-900 placeholder-gray-500" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
             </div>
             <div>
-              <label className="block text-sm mb-1">Quantity</label>
-              <input type="number" min={1} className="border p-2 rounded w-full" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} required />
+              <label className="block text-sm mb-1 text-gray-700">Quantity</label>
+              <input type="number" min={1} className="border p-2 rounded w-full text-gray-900" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} required />
             </div>
             {item?.requireAddress && (
               <fieldset className="border rounded p-3">
                 <legend className="px-1 text-sm text-gray-700">Shipping address</legend>
                 <div className="grid grid-cols-1 gap-3">
                   <div>
-                    <label className="block text-sm mb-1">Address line 1</label>
-                    <input className="border p-2 rounded w-full" value={form.address1} onChange={(e) => setForm({ ...form, address1: e.target.value })} required />
+                    <label className="block text-sm mb-1 text-gray-700">Address line 1</label>
+                    <input className="border p-2 rounded w-full text-gray-900 placeholder-gray-500" value={form.address1} onChange={(e) => setForm({ ...form, address1: e.target.value })} required />
                   </div>
                   <div>
-                    <label className="block text-sm mb-1">Address line 2 (optional)</label>
-                    <input className="border p-2 rounded w-full" value={form.address2} onChange={(e) => setForm({ ...form, address2: e.target.value })} />
+                    <label className="block text-sm mb-1 text-gray-700">Address line 2 (optional)</label>
+                    <input className="border p-2 rounded w-full text-gray-900 placeholder-gray-500" value={form.address2} onChange={(e) => setForm({ ...form, address2: e.target.value })} />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-sm mb-1">City</label>
-                      <input className="border p-2 rounded w-full" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} required />
+                      <label className="block text-sm mb-1 text-gray-700">City</label>
+                      <input className="border p-2 rounded w-full text-gray-900 placeholder-gray-500" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} required />
                     </div>
                     <div>
-                      <label className="block text-sm mb-1">State/Province</label>
-                      <input className="border p-2 rounded w-full" value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} required />
+                      <label className="block text-sm mb-1 text-gray-700">State/Province</label>
+                      <input className="border p-2 rounded w-full text-gray-900 placeholder-gray-500" value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })} required />
                     </div>
                     <div>
-                      <label className="block text-sm mb-1">Postal code</label>
-                      <input className="border p-2 rounded w-full" value={form.postalCode} onChange={(e) => setForm({ ...form, postalCode: e.target.value })} required />
+                      <label className="block text-sm mb-1 text-gray-700">Postal code</label>
+                      <input className="border p-2 rounded w-full text-gray-900 placeholder-gray-500" value={form.postalCode} onChange={(e) => setForm({ ...form, postalCode: e.target.value })} required />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm mb-1">Country</label>
-                    <input className="border p-2 rounded w-full" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} required />
+                    <label className="block text-sm mb-1 text-gray-700">Country</label>
+                    <input className="border p-2 rounded w-full text-gray-900 placeholder-gray-500" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} required />
                   </div>
                 </div>
               </fieldset>
             )}
             <div>
-              <label className="block text-sm mb-1">Notes (optional)</label>
-              <textarea className="border p-2 rounded w-full" rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+              <label className="block text-sm mb-1 text-gray-700">Notes (optional)</label>
+              <textarea className="border p-2 rounded w-full text-gray-900 placeholder-gray-500" rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             </div>
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="text-sm text-gray-700">Total: <span className="font-semibold">${price.toFixed(2)}</span></div>

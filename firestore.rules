@@ -2,15 +2,56 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  match /inventory/{documentId} {
-      // Allow read access to anyone
+    // Public slug resolver for storefront vanity URLs
+    match /slugs/{slug} {
       allow read: if true;
-
-      // Allow write access only if the user is authenticated
+      // Slug writes only by authenticated users via app logic
       allow write: if request.auth != null;
     }
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+
+    // Businesses and public store content
+    match /businesses/{businessId} {
+      // Allow anyone to read public storefront data
+      allow read: if true;
+      // Only the owner (uid == businessId) can write the business doc
+      allow write: if request.auth != null && request.auth.uid == businessId;
+
+      // Items visible publicly
+      match /items/{itemId} {
+        allow read: if true;
+        allow write: if request.auth != null && request.auth.uid == businessId;
+      }
+
+      // Collections and membership subcollections (e.g., items)
+      match /collections/{collectionId} {
+        allow read: if true;
+        allow write: if request.auth != null && request.auth.uid == businessId;
+
+        // Nested membership docs: /collections/{collectionId}/{type}/{itemId}
+        match /{type=**}/{docId} {
+          allow read: if true;
+          allow write: if request.auth != null && request.auth.uid == businessId;
+        }
+      }
+
+      // Orders: allow customers to create orders; owner can read/manage
+      match /orders/{orderId} {
+        // Owner reads and manages orders
+        allow read, update, delete: if request.auth != null && request.auth.uid == businessId;
+        // Allow anyone to create an order (used by public checkout/request flow)
+        allow create: if true;
+      }
+    }
+
+    // User profiles are private to the user
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Public contact/support requests: anyone can create
+    match /userRequest/{docId} {
+      allow create: if true;
+      allow read, update, delete: if request.auth != null;
     }
   }
 }
