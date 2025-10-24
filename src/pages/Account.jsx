@@ -181,6 +181,7 @@ export default function Account() {
             {business?.id && (
               <div className="text-sm">Business ID: {business.id}</div>
             )}
+            <div className="text-sm">Stripe account ID: {business?.payment?.stripeAccountId || '—'}</div>
             <div className="mt-3">
               <button
                 type="button"

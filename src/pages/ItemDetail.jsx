@@ -141,6 +141,7 @@ export default function ItemDetail() {
   const handleStripeCheckout = async () => {
     if (!businessId || !item) return;
     try {
+      setSubmitting(true);
       // Create an order to track payment
       const shippingAddress = item.requireAddress
         ? {
@@ -174,6 +175,7 @@ export default function ItemDetail() {
       console.error('Stripe Checkout error', e);
       const details = e?.body?.error || e?.message || 'Unknown error';
       alert(`Failed to start Stripe Checkout: ${details}`);
+      setSubmitting(false);
     }
   };
 
@@ -187,26 +189,6 @@ export default function ItemDetail() {
   return (
     <React.Fragment>
     <div className="max-w-4xl mx-auto">
-      <div className="mb-4">
-        <button
-          type="button"
-          onClick={() => {
-            const target = business?.slug
-              ? `/store/${business.slug}`
-              : (business?.id ? `/store/${business.id}` : (businessId ? `/store/${businessId}` : null));
-            if (target) {
-              navigate(target);
-            } else if (window.history.length > 1) {
-              navigate(-1);
-            } else {
-              navigate('/store');
-            }
-          }}
-          className="text-blue-600 hover:underline"
-        >
-          ← Back to Store
-        </button>
-      </div>
       <div className="mb-6 text-center">
         <h1 className="text-2xl font-bold">{item.name}</h1>
         {business?.name && (
@@ -295,8 +277,14 @@ export default function ItemDetail() {
                 </button>
               )}
               {hasStripe && (
-                <button type="button" disabled={!isFormValid} onClick={handleStripeCheckout} className={`bg-purple-600 text-white px-4 py-2 rounded ${!isFormValid ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                  Pay with Stripe
+                <button
+                  type="button"
+                  disabled={!isFormValid || submitting}
+                  onClick={handleStripeCheckout}
+                  className={`bg-purple-600 text-white px-4 py-2 rounded ${(!isFormValid || submitting) ? 'opacity-50 cursor-wait' : ''}`}
+                  aria-busy={submitting}
+                >
+                  {submitting ? 'Redirecting…' : 'Pay with Stripe'}
                 </button>
               )}
             </div>
