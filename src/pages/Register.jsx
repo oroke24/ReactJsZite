@@ -39,7 +39,7 @@ export default function Register() {
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <form
         onSubmit={handleSubmit}
-        className="bg-white p-8 rounded-lg shadow-md w-80"
+        className="bg-white p-8 rounded-lg shadow-md w-80 text-gray-900"
       >
         <h2 className="text-2xl font-bold mb-6 text-center">Register</h2>
 
@@ -48,7 +48,7 @@ export default function Register() {
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="border p-2 w-full mb-3 rounded"
+          className="border border-gray-300 p-2 w-full mb-3 rounded bg-white text-gray-900 placeholder-gray-500"
           required
         />
 
@@ -57,7 +57,7 @@ export default function Register() {
           placeholder="Password (min 6 chars)"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="border p-2 w-full mb-4 rounded"
+          className="border border-gray-300 p-2 w-full mb-4 rounded bg-white text-gray-900 placeholder-gray-500"
           required
         />
 

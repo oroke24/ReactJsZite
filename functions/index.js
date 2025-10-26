@@ -231,7 +231,7 @@ app.post('/stripe/createCheckoutSessionPublic', async (req, res) => {
   try {
     const stripe = getStripe();
     if (!stripe) return res.status(500).json({ error: 'Stripe not configured' });
-    const { businessId, orderId, itemId, quantity = 1, successUrl, cancelUrl, customerEmail } = req.body || {};
+    const { businessId, orderId, itemId, quantity = 1, successUrl, cancelUrl, customerEmail, buyerName, notes, shippingAddress } = req.body || {};
     if (!businessId || !itemId) return res.status(400).json({ error: 'Missing businessId or itemId' });
     const bizSnap = await db.doc(`businesses/${businessId}`).get();
     if (!bizSnap.exists) return res.status(404).json({ error: 'Business not found' });
@@ -280,7 +280,19 @@ app.post('/stripe/createCheckoutSessionPublic', async (req, res) => {
         businessId,
         ...(orderId ? { orderId } : {}),
         itemId,
-        quantity: String(qty)
+        quantity: String(qty),
+        unitCents: String(unit),
+        itemName: item.name,
+        buyerName: buyerName || '',
+        notes: notes || '',
+        ...(shippingAddress ? {
+          ship_address1: shippingAddress.address1 || '',
+          ship_address2: shippingAddress.address2 || '',
+          ship_city: shippingAddress.city || '',
+          ship_region: shippingAddress.region || '',
+          ship_postal: shippingAddress.postalCode || '',
+          ship_country: shippingAddress.country || ''
+        } : {})
       }
     });
     res.json({ url: session.url });
@@ -335,6 +347,40 @@ webhook.post('/stripe/webhook', async (req, res) => {
             await db.doc(`businesses/${businessId}/orders/${orderId}`).set({ status: 'paid', stripeSessionId: session.id, paidAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
           } catch (e) {
             console.error('Failed to mark order paid', e);
+          }
+        } else if (businessId) {
+          // Create a new order on successful payment if one wasn't pre-created
+          try {
+            const qty = parseInt(session.metadata?.quantity || '1', 10) || 1;
+            const unitCents = parseInt(session.metadata?.unitCents || '0', 10) || 0;
+            const totalCents = typeof session.amount_total === 'number' ? session.amount_total : (unitCents * qty);
+            const order = {
+              itemId: session.metadata?.itemId || null,
+              itemName: session.metadata?.itemName || 'Item',
+              unitPrice: unitCents / 100,
+              quantity: qty,
+              total: totalCents / 100,
+              buyerName: session.metadata?.buyerName || session.customer_details?.name || '',
+              buyerEmail: session.customer_email || session.customer_details?.email || '',
+              notes: session.metadata?.notes || '',
+              status: 'paid',
+              stripeSessionId: session.id,
+              paidAt: admin.firestore.FieldValue.serverTimestamp(),
+            };
+            const ship = {
+              address1: session.metadata?.ship_address1 || '',
+              address2: session.metadata?.ship_address2 || '',
+              city: session.metadata?.ship_city || '',
+              region: session.metadata?.ship_region || '',
+              postalCode: session.metadata?.ship_postal || '',
+              country: session.metadata?.ship_country || '',
+            };
+            if (ship.address1 && ship.city && ship.region && ship.postalCode && ship.country) {
+              order.shippingAddress = ship;
+            }
+            await db.collection('businesses').doc(businessId).collection('orders').add(order);
+          } catch (e) {
+            console.error('Failed to create order from webhook', e);
           }
         }
         break;

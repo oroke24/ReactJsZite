@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Routes, Route, Link, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import Home from "./pages/Home";
@@ -12,6 +12,103 @@ import Account from "./pages/Account"
 import VerifyEmail from "./pages/VerifyEmail";
 import LoginModal from "./components/LoginModal";
 import RegisterModal from "./components/RegisterModal";
+import Orders from "./pages/Orders";
+
+function ResponsiveNav({ logout }) {
+  const location = useLocation();
+  const contentRef = useRef(null);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const checkOverflow = () => {
+    const el = contentRef.current;
+    if (!el) return;
+    const overflowing = el.scrollWidth > el.clientWidth;
+    setIsOverflowing(overflowing);
+    if (!overflowing) setMenuOpen(false);
+  };
+
+  useEffect(() => {
+    checkOverflow();
+    const onResize = () => {
+      // Debounce a bit without timers by rAF
+      window.requestAnimationFrame(checkOverflow);
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    // Close menu on route change and re-evaluate sizes
+    setMenuOpen(false);
+    // Next tick to allow layout to settle
+    setTimeout(checkOverflow, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
+
+  const NavLinks = ({ onNavigate }) => (
+    <>
+      <Link to="/account" onClick={onNavigate} className="p-3 mx-2 bg-gray-200 rounded-2xl hover:bg-gray-300">Account</Link>
+      <Link to="/store" onClick={onNavigate} className="p-3 mx-2 bg-gray-200 rounded-2xl hover:bg-gray-300">My Store</Link>
+      <Link to="/dashboard" onClick={onNavigate} className="p-3 mx-2 bg-gray-200 rounded-2xl hover:bg-gray-300">Dashboard</Link>
+      <Link to="/orders" onClick={onNavigate} className="p-3 mx-2 bg-gray-200 rounded-2xl hover:bg-gray-300">Orders</Link>
+    </>
+  );
+
+  return (
+    <div className="relative">
+      {/* Inline layout when not overflowing */}
+      <div ref={contentRef} className="w-full flex justify-between items-center overflow-hidden">
+        {!isOverflowing ? (
+          <>
+            <div className="flex min-w-0">
+              <NavLinks onNavigate={() => {}} />
+            </div>
+            <div>
+              <button
+                onClick={logout}
+                className="px-3 py-1 rounded-xl bg-red-500 text-white hover:bg-red-600 transition"
+              >
+                Logout
+              </button>
+            </div>
+          </>
+        ) : (
+          // When overflowing, hide inline items and show a Menu button
+          <div className="w-full flex justify-end">
+            <button
+              onClick={() => setMenuOpen(v => !v)}
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              className="px-3 py-2 rounded-xl bg-gray-200 hover:bg-gray-300"
+            >
+              Menu ▾
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Dropdown menu when overflowing */}
+      {isOverflowing && menuOpen && (
+        <div
+          role="menu"
+          className="absolute right-0 mt-2 w-56 bg-white border rounded shadow z-20"
+        >
+          <div className="flex flex-col p-2">
+            <NavLinks onNavigate={() => setMenuOpen(false)} />
+            <button
+              onClick={() => { setMenuOpen(false); logout(); }}
+              className="mt-2 px-3 py-2 rounded bg-red-500 text-white hover:bg-red-600 transition"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function App() {
   const { user, loading, logout } = useAuth();
@@ -31,40 +128,15 @@ export default function App() {
     <div className="w-full min-h-screen flex flex-col">
       {/* --- Navigation (hidden on public storefront) --- */}
       {!isPublicStoreRoute && (
-      <nav className="p-4 bg-gray-100 flex justify-between items-center shadow-md">
-        <div className="w-full flex gap-3 items-center justify-end">
+      <nav className="p-4 bg-gray-100 flex items-center shadow-md">
+        <div className="w-full">
           {!user ? (
-            <>
-              <Link to="/login" className="text-blue-600 hover:underline">
-                Login
-              </Link>
-              <Link to="/register" className="text-blue-600 hover:underline">
-                Register
-              </Link>
-              
-            </>
-          ) : (
-            <div className="w-full flex justify-between items-center">
-              <div className="flex">
-                <Link to="/account" className="p-3 mx-2 bg-gray-200 rounded-2xl hover:bg-gray-300">
-                  Account
-                </Link>
-                <Link to="/store" className="p-3 mx-2 bg-gray-200 rounded-2xl hover:bg-gray-300">
-                  My Store
-                </Link>
-                <Link to="/dashboard" className="p-3 mx-2 bg-gray-200 rounded-2xl hover:bg-gray-300">
-                  Dashboard
-                </Link>
-              </div>
-              <div className="">
-                <button
-                  onClick={logout}
-                  className="px-3 py-1 rounded-xl bg-red-500 text-white hover:bg-red-600 transition"
-                >
-                  Logout
-                </button>
-              </div>
+            <div className="flex gap-3 justify-end">
+              <Link to="/login" className="text-blue-600 hover:underline">Login</Link>
+              <Link to="/register" className="text-blue-600 hover:underline">Register</Link>
             </div>
+          ) : (
+            <ResponsiveNav logout={logout} />
           )}
         </div>
       </nav>
@@ -106,6 +178,7 @@ export default function App() {
 
           {/* Protected route */}
           <Route path="/dashboard" element={user ? (user.emailVerified ? <Dashboard /> : <Navigate to="/verify-email" replace />) : <Navigate to="/" replace />} />
+          <Route path="/orders" element={user ? (user.emailVerified ? <Orders /> : <Navigate to="/verify-email" replace />) : <Navigate to="/" replace />} />
           <Route path="/store" element={user ? (user.emailVerified ? <Storefront /> : <Navigate to="/verify-email" replace />) : <Navigate to="/" replace/>} />
           {/* Public storefront by business id for customers */}
           <Route path="/store/:businessId" element={<Storefront />} />

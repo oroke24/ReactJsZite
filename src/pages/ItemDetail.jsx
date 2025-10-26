@@ -142,34 +142,27 @@ export default function ItemDetail() {
     if (!businessId || !item) return;
     try {
       setSubmitting(true);
-      // Create an order to track payment
-      const shippingAddress = item.requireAddress
-        ? {
-            address1: form.address1,
-            address2: form.address2 || "",
-            city: form.city,
-            region: form.region,
-            postalCode: form.postalCode,
-            country: form.country,
-          }
-        : undefined;
-      const order = {
-        itemId: item.id,
-        itemName: item.name,
-        unitPrice: parseFloat(item.price || 0),
-        quantity: parseInt(form.quantity || 1, 10),
-        total: price,
-        buyerName: form.name,
-        buyerEmail: form.email,
-        notes: form.notes || "",
-        ...(shippingAddress ? { shippingAddress } : {}),
-        status: "pending-payment",
-      };
-      const orderId = await addOrder(businessId, order);
       const slugOrId = business?.slug || businessId;
       const successUrl = `${window.location.origin}/store/${slugOrId}/item/${itemId}?paid=1`;
       const cancelUrl = `${window.location.origin}/store/${slugOrId}/item/${itemId}`;
-      const { url } = await createPublicCheckoutSession(businessId, { orderId, itemId, quantity: parseInt(form.quantity || 1, 10), successUrl, cancelUrl, customerEmail: form.email });
+      const payload = {
+        itemId,
+        quantity: parseInt(form.quantity || 1, 10),
+        successUrl,
+        cancelUrl,
+        customerEmail: form.email,
+        buyerName: form.name,
+        notes: form.notes || "",
+        shippingAddress: item.requireAddress ? {
+          address1: form.address1,
+          address2: form.address2 || "",
+          city: form.city,
+          region: form.region,
+          postalCode: form.postalCode,
+          country: form.country,
+        } : undefined,
+      };
+      const { url } = await createPublicCheckoutSession(businessId, payload);
       window.location.assign(url);
     } catch (e) {
       console.error('Stripe Checkout error', e);
@@ -189,7 +182,7 @@ export default function ItemDetail() {
   return (
     <React.Fragment>
     <div className="max-w-4xl mx-auto">
-      <div className="mb-6 text-center">
+      <div className="mb-4 md:mb-6 text-center px-3">
         <h1 className="text-2xl font-bold">{item.name}</h1>
         {business?.name && (
           <div className="text-sm text-gray-600">from {business.name}</div>
@@ -203,11 +196,11 @@ export default function ItemDetail() {
       )}
 
       <div className="space-y-6">
-        <div>
+        <div className="px-3">
           {item.imageUrl && (
             <button
               type="button"
-              className="h-64 overflow-auto rounded border w-full text-left cursor-zoom-in"
+              className="h-48 md:h-64 overflow-auto rounded border w-full text-left cursor-zoom-in"
               onClick={() => setShowImageModal(true)}
               aria-label="Expand image"
             >
@@ -217,7 +210,7 @@ export default function ItemDetail() {
           <p className="mt-3 text-gray-800 whitespace-pre-wrap">{item.description}</p>
         </div>
 
-        <div className="p-4 border rounded bg-white shadow text-gray-900">
+        <div className="p-4 md:p-5 border rounded bg-white shadow text-gray-900 mx-3">
           <div className="text-xl font-semibold">${item.price}</div>
           <form className="mt-4 space-y-3" onSubmit={(e) => { e.preventDefault(); if (!hasStripe) { submitOrder(); } }}>
             <div>
@@ -272,7 +265,7 @@ export default function ItemDetail() {
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="text-sm text-gray-700">Total: <span className="font-semibold">${price.toFixed(2)}</span></div>
               {!hasStripe && (
-                <button type="submit" disabled={submitting || !isFormValid} className={`bg-green-600 text-white px-4 py-2 rounded ${submitting || !isFormValid ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                <button type="submit" disabled={submitting || !isFormValid} className={`bg-green-600 text-white px-4 py-2 rounded w-full sm:w-auto ${submitting || !isFormValid ? 'opacity-50 cursor-not-allowed' : ''}`}>
                   {submitting ? 'Submitting…' : 'Send request'}
                 </button>
               )}
@@ -281,7 +274,7 @@ export default function ItemDetail() {
                   type="button"
                   disabled={!isFormValid || submitting}
                   onClick={handleStripeCheckout}
-                  className={`bg-purple-600 text-white px-4 py-2 rounded ${(!isFormValid || submitting) ? 'opacity-50 cursor-wait' : ''}`}
+                  className={`bg-purple-600 text-white px-4 py-2 rounded w-full sm:w-auto ${(!isFormValid || submitting) ? 'opacity-50 cursor-wait' : ''}`}
                   aria-busy={submitting}
                 >
                   {submitting ? 'Redirecting…' : 'Pay with Stripe'}

@@ -185,12 +185,29 @@ export default function CollectionsManager({ businessId }) {
         {/* Sidebar: vertical list of collections with reorder */}
         <div className="md:col-span-1 border rounded p-2 max-h-72 overflow-auto">
           {sortedCollections.map((c, i) => (
-            <div key={c.id} className={`flex items-center justify-between px-2 py-1 rounded mb-1 ${selectedCollectionId === c.id ? 'bg-blue-50' : ''}`}>
-              <button className="text-left flex-1 underline" onClick={() => setSelectedCollectionId(c.id)}>{c.name}</button>
-              <div className="flex items-center gap-1">
-                <button title="Move up" className="px-2 py-1 text-xs border rounded disabled:opacity-40" onClick={() => move(c.id, -1)} disabled={i === 0 || loading}>↑</button>
-                <button title="Move down" className="px-2 py-1 text-xs border rounded disabled:opacity-40" onClick={() => move(c.id, +1)} disabled={i === sortedCollections.length - 1 || loading}>↓</button>
-                <button className="px-2 py-1 text-xs text-red-600 border rounded" onClick={() => remove(c.id)} disabled={loading}>Delete</button>
+            <div key={c.id} className={`flex items-center gap-2 px-2 py-1 rounded mb-1 ${selectedCollectionId === c.id ? 'bg-blue-50' : ''}`}>
+              <button className="text-left flex-1 underline truncate" onClick={() => setSelectedCollectionId(c.id)}>{c.name}</button>
+              {/* Fixed-width action area to prevent layout shift */}
+              <div className="flex items-center gap-1 w-40 shrink-0 justify-end">
+                <button
+                  title="Move up"
+                  className="w-8 text-center py-1 text-xs border rounded disabled:opacity-40"
+                  onClick={() => move(c.id, -1)}
+                  disabled={i === 0 || loading}
+                >↑</button>
+                <button
+                  title="Move down"
+                  className="w-8 text-center py-1 text-xs border rounded disabled:opacity-40"
+                  onClick={() => move(c.id, +1)}
+                  disabled={i === sortedCollections.length - 1 || loading}
+                >↓</button>
+                <button
+                  className="w-8 text-center py-1 text-xs text-red-600 border rounded disabled:opacity-40"
+                  onClick={() => remove(c.id)}
+                  aria-label="Delete"
+                  title="Delete"
+                  disabled={loading}
+                >✕</button>
               </div>
             </div>
           ))}

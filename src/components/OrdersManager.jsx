@@ -156,7 +156,12 @@ export default function OrdersManager({ businessId }) {
                   </select>
                 </td>
                 <td className="py-2 pr-3">
-                  <button className="text-red-600 underline" onClick={(e) => { e.stopPropagation(); remove(o.id); }}>Delete</button>
+                  <button
+                    className="text-red-600 border rounded px-2 py-1"
+                    title="Delete"
+                    aria-label="Delete"
+                    onClick={(e) => { e.stopPropagation(); remove(o.id); }}
+                  >✕</button>
                 </td>
               </tr>
             ))}

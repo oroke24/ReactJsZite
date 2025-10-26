@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import ItemManager from "../components/ItemManager";
 import CollectionsManager from "../components/CollectionsManager";
-import OrdersManager from "../components/OrdersManager";
+import BusinessSettings from "../components/BusinessSettings";
 import { useAuth } from "../context/AuthContext";
 import { getBusinessesByUser, getUserProfile } from "../lib/firestore";
 
@@ -10,7 +10,7 @@ export default function Dashboard() {
   const [businessId, setBusinessId] = useState(null);
   const [showCollectionsManager, setShowCollectionsManager] = useState(false);
   const [showItemManager, setShowItemManager] = useState(false);
-  const [showOrdersManager, setShowOrdersManager] = useState(false);
+  const [showBusinessSettings, setShowBusinessSettings] = useState(false);
 
 
   useEffect(() => {
@@ -39,8 +39,20 @@ export default function Dashboard() {
   
 
   return (
-    <div>
+    <div className="text-gray-900">
       <h1 className="text-2xl mb-4">Dashboard</h1>
+      {/* Dropdown: Business Settings */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between bg-white p-4 rounded shadow cursor-pointer" onClick={() => setShowBusinessSettings(v => !v)}>
+          <h2 className="text-lg font-semibold">Business</h2>
+          <span className="text-blue-600">{showBusinessSettings ? 'Hide' : 'Show'}</span>
+        </div>
+        {showBusinessSettings && (
+          <div className="mt-2">
+            <BusinessSettings businessId={businessId} />
+          </div>
+        )}
+      </div>
       {/* Dropdown: Collections Manager */}
       <div className="mb-6">
         <div className="flex items-center justify-between bg-white p-4 rounded shadow cursor-pointer" onClick={() => setShowCollectionsManager(v => !v)}>
@@ -67,18 +79,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Dropdown: Orders */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between bg-white p-4 rounded shadow cursor-pointer" onClick={() => setShowOrdersManager(v => !v)}>
-          <h2 className="text-lg font-semibold">Orders</h2>
-          <span className="text-blue-600">{showOrdersManager ? 'Hide' : 'Show'}</span>
-        </div>
-        {showOrdersManager && (
-          <div className="mt-2">
-            <OrdersManager businessId={businessId} />
-          </div>
-        )}
-      </div>
+      {/* Orders moved to its own page (/orders) */}
     </div>
   );
 }

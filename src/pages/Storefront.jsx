@@ -127,19 +127,19 @@ export default function Storefront() {
                     <p className="mb-4" style={textStyle}>{col.description}</p>
                   )}
                   {colItems.length > 0 && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                       {colItems.map((it) => (
                         <Link
                           key={it.id}
                           to={business?.id ? `/store/${business.slug || business.id}/item/${it.id}` : `/store/item/${it.id}`}
-                          className="border rounded p-4 bg-white shadow hover:shadow-md transition block"
+                          className="border rounded p-4 bg-white text-gray-900 shadow hover:shadow-md transition block"
                         >
                           {it.imageUrl && (
-                            <img src={it.imageUrl} alt={it.name} className="w-full h-40 object-cover mb-3 rounded" />
+                            <img src={it.imageUrl} alt={it.name} className="w-full h-36 md:h-40 object-cover mb-3 rounded" />
                           )}
-                          <h3 className="font-bold">{it.name}</h3>
-                          <div className="text-sm text-gray-600">${it.price}</div>
-                          <p className="text-sm mt-2 line-clamp-3">{it.description}</p>
+                          <h3 className="font-semibold text-base">{it.name}</h3>
+                          <div className="text-sm text-gray-700 font-medium mt-0.5">${it.price}</div>
+                          <p className="text-sm mt-2 line-clamp-3 text-gray-700">{it.description}</p>
                         </Link>
                       ))}
                     </div>
