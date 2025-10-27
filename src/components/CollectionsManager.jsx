@@ -16,6 +16,7 @@ export default function CollectionsManager({ businessId }) {
   const [editColor, setEditColor] = useState("");
   const [editOpacity, setEditOpacity] = useState(100); // percent 0-100
   const [editTextColor, setEditTextColor] = useState("");
+  const [editTextAlign, setEditTextAlign] = useState("left"); // left|center|right|justify
 
   const sortedCollections = useMemo(() => {
     return collections
@@ -52,6 +53,7 @@ export default function CollectionsManager({ businessId }) {
   setEditColor(sel?.backgroundColor || "");
   setEditOpacity(typeof sel?.backgroundOpacity === 'number' ? Math.round(sel.backgroundOpacity * 100) : 100);
   setEditTextColor(sel?.textColor || "");
+  setEditTextAlign(sel?.textAlign || "left");
     };
     loadMembership();
   }, [businessId, selectedCollectionId, collections]);
@@ -130,6 +132,7 @@ export default function CollectionsManager({ businessId }) {
         updates.backgroundOpacity = deleteField();
       }
       updates.textColor = editTextColor ? editTextColor : deleteField();
+      updates.textAlign = editTextAlign || 'left';
       await updateCollection(businessId, selectedCollectionId, updates);
       await refreshCollections();
     } catch (e) {
@@ -237,6 +240,15 @@ export default function CollectionsManager({ businessId }) {
                   <label className="text-sm text-gray-700">Text color</label>
                   <input type="color" className="w-10 h-10 p-0 border rounded" value={editTextColor || '#000000'} onChange={(e) => setEditTextColor(e.target.value)} />
                   <button type="button" className="text-sm text-gray-600 underline" onClick={() => setEditTextColor("")}>Clear</button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-gray-700">Text align</label>
+                  <select className="border p-1 rounded" value={editTextAlign} onChange={(e) => setEditTextAlign(e.target.value)}>
+                    <option value="left">Left</option>
+                    <option value="center">Center</option>
+                    <option value="right">Right</option>
+                    <option value="justify">Justify</option>
+                  </select>
                 </div>
                 <button className={`bg-blue-600 text-white px-3 py-2 rounded ${loading ? 'opacity-50' : ''}`} onClick={saveIntro} disabled={loading}>Save</button>
               </div>

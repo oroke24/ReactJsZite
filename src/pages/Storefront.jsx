@@ -84,28 +84,30 @@ export default function Storefront() {
   })();
 
   return (
-  <div className="p-6 min-h-screen" style={pageStyle}>
-      {!business && <h1 className="text-2xl">Storefront</h1>}
+  <div className="min-h-screen" style={pageStyle}>
+      {!business && <h1 className="text-2xl p-6">Storefront</h1>}
 
       {business && (
         <div>
-          <header className="mb-6 text-center">
-            <h1 className="text-3xl font-bold mb-4" style={{ color: business?.textColor || undefined }}>{business.name}</h1>
-            {business.imageUrl && (
-              <div className="mb-4 max-w-4xl mx-auto">
-                <img
-                  src={business.imageUrl}
-                  alt={business.name}
-                  className="w-full h-48 object-cover rounded border"
-                  style={{ objectPosition: business.imagePosition || '50% 50%' }}
-                />
-              </div>
-            )}
+          {/* Hero image at very top, full-width, taller height */}
+          {business.imageUrl && (
+            <div className="w-full">
+              <img
+                src={business.imageUrl}
+                alt={business.name}
+                className="block w-full h-80 md:h-[28rem] object-cover"
+                style={{ objectPosition: business.imagePosition || '50% 50%' }}
+              />
+            </div>
+          )}
+
+          <header className="px-6 pt-6 mb-6 text-center">
+            <h1 className="text-3xl font-bold mb-3" style={{ color: business?.textColor || undefined }}>{business.name}</h1>
             <p className="max-w-3xl mx-auto" style={{ color: business?.textColor || undefined }}>{business.description}</p>
           </header>
 
           {/* Group by Collection: each collection shows its Items */}
-          <section>
+          <section className="px-6">
             {collections
               .slice()
               .sort((a,b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER) || (a.name||"").localeCompare(b.name||""))
@@ -119,29 +121,32 @@ export default function Storefront() {
                 ? { backgroundColor: (typeof col.backgroundOpacity === 'number' ? toRgba(col.backgroundColor, col.backgroundOpacity) : col.backgroundColor) }
                 : { backgroundColor: 'transparent' };
               const textStyle = col.textColor ? { color: col.textColor } : undefined;
+              const alignStyle = col.textAlign ? { textAlign: col.textAlign } : {};
               return (
                 <div key={col.id} className="mb-10 rounded" style={bgStyle}>
                   <div className="p-4">
-                  <h2 className="text-2xl font-semibold" style={textStyle}>{col.name}</h2>
+                  <h2 className="text-2xl font-semibold" style={{ ...(textStyle || {}), ...alignStyle }}>{col.name}</h2>
                   {col.description && (
-                    <p className="mb-4" style={textStyle}>{col.description}</p>
+                    <p className="mb-4" style={{ ...(textStyle || {}), ...alignStyle }}>{col.description}</p>
                   )}
                   {colItems.length > 0 && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                      {colItems.map((it) => (
-                        <Link
-                          key={it.id}
-                          to={business?.id ? `/store/${business.slug || business.id}/item/${it.id}` : `/store/item/${it.id}`}
-                          className="border rounded p-4 bg-white text-gray-900 shadow hover:shadow-md transition block"
-                        >
-                          {it.imageUrl && (
-                            <img src={it.imageUrl} alt={it.name} className="w-full h-36 md:h-40 object-cover mb-3 rounded" />
-                          )}
-                          <h3 className="font-semibold text-base">{it.name}</h3>
-                          <div className="text-sm text-gray-700 font-medium mt-0.5">${it.price}</div>
-                          <p className="text-sm mt-2 line-clamp-3 text-gray-700">{it.description}</p>
-                        </Link>
-                      ))}
+                    <div className="overflow-x-auto">
+                      <div className="flex gap-4 pb-2 snap-x snap-mandatory">
+                        {colItems.map((it) => (
+                          <Link
+                            key={it.id}
+                            to={business?.id ? `/store/${business.slug || business.id}/item/${it.id}` : `/store/item/${it.id}`}
+                            className="flex-none w-64 sm:w-72 border rounded p-4 bg-white text-gray-900 shadow hover:shadow-md transition block snap-start"
+                          >
+                            {it.imageUrl && (
+                              <img src={it.imageUrl} alt={it.name} className="w-full h-36 md:h-40 object-cover mb-3 rounded" />
+                            )}
+                            <h3 className="font-semibold text-base">{it.name}</h3>
+                            <div className="text-sm text-gray-700 font-medium mt-0.5">${it.price}</div>
+                            <p className="text-sm mt-2 line-clamp-3 text-gray-700">{it.description}</p>
+                          </Link>
+                        ))}
+                      </div>
                     </div>
                   )}
                   </div>
@@ -154,7 +159,7 @@ export default function Storefront() {
             )}
           </section>
           {(business?.companyEmail || business?.companyPhone) && (
-            <footer className="mt-12 pt-6 border-t">
+            <footer className="mt-12 pt-6 border-t px-6">
               <div className="text-center space-y-3" style={{ color: business?.textColor || undefined }}>
                 <div className="text-lg font-semibold">Contact us</div>
                 <div className="flex items-center justify-center gap-6 flex-wrap">
