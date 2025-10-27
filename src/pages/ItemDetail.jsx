@@ -89,6 +89,7 @@ export default function ItemDetail() {
   }, [item, form.quantity]);
 
   const hasStripe = !!(business?.payment?.stripeAccountId && business?.payment?.chargesEnabled);
+  const requiresImmediate = !!item?.immediatePurchaseRequired;
 
   const isFormValid = useMemo(() => {
     if (!form.name || !form.email) return false;
@@ -212,7 +213,15 @@ export default function ItemDetail() {
 
         <div className="p-4 md:p-5 border rounded bg-white shadow text-gray-900 mx-3">
           <div className="text-xl font-semibold">${item.price}</div>
-          <form className="mt-4 space-y-3" onSubmit={(e) => { e.preventDefault(); if (!hasStripe) { submitOrder(); } }}>
+          <form
+            className="mt-4 space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (submitting || !isFormValid) return;
+              // Submit order requests in any scenario where a request button is shown
+              submitOrder();
+            }}
+          >
             <div>
               <label className="block text-sm mb-1 text-gray-700">Your name</label>
               <input className="border p-2 rounded w-full text-gray-900 placeholder-gray-500" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
@@ -264,21 +273,29 @@ export default function ItemDetail() {
             </div>
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="text-sm text-gray-700">Total: <span className="font-semibold">${price.toFixed(2)}</span></div>
-              {!hasStripe && (
+              {/* If immediate purchase is NOT required, show request button only */}
+              {!requiresImmediate && (
                 <button type="submit" disabled={submitting || !isFormValid} className={`bg-green-600 text-white px-4 py-2 rounded w-full sm:w-auto ${submitting || !isFormValid ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                  {submitting ? 'Submitting…' : 'Send request'}
+                  {submitting ? 'Submitting…' : 'Submit order request'}
                 </button>
               )}
-              {hasStripe && (
-                <button
-                  type="button"
-                  disabled={!isFormValid || submitting}
-                  onClick={handleStripeCheckout}
-                  className={`bg-purple-600 text-white px-4 py-2 rounded w-full sm:w-auto ${(!isFormValid || submitting) ? 'opacity-50 cursor-wait' : ''}`}
-                  aria-busy={submitting}
-                >
-                  {submitting ? 'Redirecting…' : 'Pay with Stripe'}
-                </button>
+              {/* If immediate purchase IS required, prefer Stripe when available; fallback to request */}
+              {requiresImmediate && (
+                hasStripe ? (
+                  <button
+                    type="button"
+                    disabled={!isFormValid || submitting}
+                    onClick={handleStripeCheckout}
+                    className={`bg-purple-600 text-white px-4 py-2 rounded w-full sm:w-auto ${(!isFormValid || submitting) ? 'opacity-50 cursor-wait' : ''}`}
+                    aria-busy={submitting}
+                  >
+                    {submitting ? 'Redirecting…' : 'Pay with Stripe'}
+                  </button>
+                ) : (
+                  <button type="submit" disabled={submitting || !isFormValid} className={`bg-green-600 text-white px-4 py-2 rounded w-full sm:w-auto ${submitting || !isFormValid ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                    {submitting ? 'Submitting…' : 'Submit order request'}
+                  </button>
+                )
               )}
             </div>
           </form>

@@ -4,7 +4,7 @@ import { uploadImage, replaceImage, deleteImageByUrl } from "../lib/uploadImage"
 import { addItem, getItems, updateItem, deleteItem } from "../lib/items";
 
 export default function ItemManager({ businessId }) {
-  const [item, setItem] = useState({ name: "", price: "", description: "", requireAddress: false });
+  const [item, setItem] = useState({ name: "", price: "", description: "", requireAddress: false, immediatePurchaseRequired: false });
   const [image, setImage] = useState(null);
   const [preview, setPreview] = useState(null);
   const [items, setItems] = useState([]);
@@ -43,7 +43,7 @@ export default function ItemManager({ businessId }) {
     if (!businessId) return alert("No business selected!");
     setLoading(true);
     try {
-      if (editingId) {
+  if (editingId) {
         const current = items.find((x) => x.id === editingId);
         let nextImageUrl = current?.imageUrl || null;
         // If user chose a new image, replace it
@@ -54,7 +54,7 @@ export default function ItemManager({ businessId }) {
           await deleteImageByUrl(current.imageUrl);
           nextImageUrl = null;
         }
-        const updates = { ...item, requireAddress: !!item.requireAddress };
+  const updates = { ...item, requireAddress: !!item.requireAddress, immediatePurchaseRequired: !!item.immediatePurchaseRequired };
         if (removeImage && !image) {
           updates.imageUrl = deleteField();
         } else if (image) {
@@ -65,11 +65,11 @@ export default function ItemManager({ businessId }) {
         setEditingId(null);
       } else {
         const imageUrl = image ? await uploadImage(image, businessId, 'items') : null;
-        const data = { ...item, requireAddress: !!item.requireAddress, ...(imageUrl ? { imageUrl } : {}) };
+        const data = { ...item, requireAddress: !!item.requireAddress, immediatePurchaseRequired: !!item.immediatePurchaseRequired, ...(imageUrl ? { imageUrl } : {}) };
         const id = await addItem(businessId, data);
         alert(`✅ Added new item (ID: ${id})`);
       }
-      setItem({ name: "", price: "", description: "", requireAddress: false });
+      setItem({ name: "", price: "", description: "", requireAddress: false, immediatePurchaseRequired: false });
       setImage(null);
       setRemoveImage(false);
       await loadItems();
@@ -82,7 +82,7 @@ export default function ItemManager({ businessId }) {
   };
 
   const handleEdit = (x) => {
-    setItem({ name: x.name, price: x.price, description: x.description, requireAddress: !!x.requireAddress });
+    setItem({ name: x.name, price: x.price, description: x.description, requireAddress: !!x.requireAddress, immediatePurchaseRequired: !!x.immediatePurchaseRequired });
     setPreview(x.imageUrl || null);
     setImage(null);
     setRemoveImage(false);
@@ -91,7 +91,7 @@ export default function ItemManager({ businessId }) {
 
   const handleCancelEdit = () => {
     setEditingId(null);
-    setItem({ name: "", price: "", description: "", requireAddress: false });
+    setItem({ name: "", price: "", description: "", requireAddress: false, immediatePurchaseRequired: false });
     setImage(null);
     setPreview(null);
     setRemoveImage(false);
@@ -139,14 +139,24 @@ export default function ItemManager({ businessId }) {
         className="border p-2 w-full mb-2 rounded"
       />
 
-      <label className="flex items-center gap-2 mb-4 text-sm">
-        <input
-          type="checkbox"
-          checked={!!item.requireAddress}
-          onChange={(e) => setItem({ ...item, requireAddress: e.target.checked })}
-        />
-        Require shipping address at purchase
-      </label>
+      <div className="flex items-center gap-6 mb-4 text-sm flex-wrap">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={!!item.requireAddress}
+            onChange={(e) => setItem({ ...item, requireAddress: e.target.checked })}
+          />
+          Require shipping address at purchase
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={!!item.immediatePurchaseRequired}
+            onChange={(e) => setItem({ ...item, immediatePurchaseRequired: e.target.checked })}
+          />
+          Immediate purchase required
+        </label>
+      </div>
 
       {/* Item image chooser */}
       <div className="mb-4">
@@ -200,7 +210,10 @@ export default function ItemManager({ businessId }) {
                 <div>
                   <strong>{x.name}</strong> — ${x.price}
                   <p className="text-sm text-gray-600">{x.description}</p>
-                  {x.requireAddress && <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-700">Address required</span>}
+                  <div className="flex gap-2 flex-wrap mt-1">
+                    {x.requireAddress && <span className="inline-block text-xs px-2 py-0.5 rounded bg-gray-200 text-gray-700">Address required</span>}
+                    {x.immediatePurchaseRequired && <span className="inline-block text-xs px-2 py-0.5 rounded bg-purple-100 text-purple-800">Immediate purchase</span>}
+                  </div>
                 </div>
               </div>
               <div className="flex gap-2">

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Routes, Route, Link, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import Home from "./pages/Home";
@@ -16,90 +16,51 @@ import Orders from "./pages/Orders";
 
 function ResponsiveNav({ logout }) {
   const location = useLocation();
-  const contentRef = useRef(null);
-  const [isOverflowing, setIsOverflowing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const checkOverflow = () => {
-    const el = contentRef.current;
-    if (!el) return;
-    const overflowing = el.scrollWidth > el.clientWidth;
-    setIsOverflowing(overflowing);
-    if (!overflowing) setMenuOpen(false);
-  };
-
   useEffect(() => {
-    checkOverflow();
-    const onResize = () => {
-      // Debounce a bit without timers by rAF
-      window.requestAnimationFrame(checkOverflow);
-    };
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    // Close menu on route change and re-evaluate sizes
+    // Close menu on route change
     setMenuOpen(false);
-    // Next tick to allow layout to settle
-    setTimeout(checkOverflow, 0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
-  const NavLinks = ({ onNavigate }) => (
-    <>
-      <Link to="/account" onClick={onNavigate} className="p-3 mx-2 bg-gray-200 rounded-2xl hover:bg-gray-300">Account</Link>
-      <Link to="/store" onClick={onNavigate} className="p-3 mx-2 bg-gray-200 rounded-2xl hover:bg-gray-300">My Store</Link>
-      <Link to="/dashboard" onClick={onNavigate} className="p-3 mx-2 bg-gray-200 rounded-2xl hover:bg-gray-300">Dashboard</Link>
-      <Link to="/orders" onClick={onNavigate} className="p-3 mx-2 bg-gray-200 rounded-2xl hover:bg-gray-300">Orders</Link>
-    </>
-  );
+  const LINKS = [
+    { to: "/account", label: "Account" },
+    { to: "/store", label: "My Store" },
+    { to: "/dashboard", label: "Dashboard" },
+    { to: "/orders", label: "Orders" },
+  ];
 
   return (
-    <div className="relative">
-      {/* Inline layout when not overflowing */}
-      <div ref={contentRef} className="w-full flex justify-between items-center overflow-hidden">
-        {!isOverflowing ? (
-          <>
-            <div className="flex min-w-0">
-              <NavLinks onNavigate={() => {}} />
-            </div>
-            <div>
-              <button
-                onClick={logout}
-                className="px-3 py-1 rounded-xl bg-red-500 text-white hover:bg-red-600 transition"
-              >
-                Logout
-              </button>
-            </div>
-          </>
-        ) : (
-          // When overflowing, hide inline items and show a Menu button
-          <div className="w-full flex justify-end">
-            <button
-              onClick={() => setMenuOpen(v => !v)}
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              className="px-3 py-2 rounded-xl bg-gray-200 hover:bg-gray-300"
-            >
-              Menu ▾
-            </button>
-          </div>
-        )}
+    <div className="relative w-full">
+      <div className="w-full flex justify-end">
+        <button
+          onClick={() => setMenuOpen(v => !v)}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          className="px-3 py-2 rounded-xl bg-gray-200 hover:bg-gray-300"
+        >
+          Menu ▾
+        </button>
       </div>
-
-      {/* Dropdown menu when overflowing */}
-      {isOverflowing && menuOpen && (
+      {menuOpen && (
         <div
           role="menu"
           className="absolute right-0 mt-2 w-56 bg-white border rounded shadow z-20"
         >
-          <div className="flex flex-col p-2">
-            <NavLinks onNavigate={() => setMenuOpen(false)} />
+          <div className="flex flex-col p-2 space-y-3">
+            {LINKS.map((l) => (
+              <Link
+                key={l.to}
+                to={l.to}
+                onClick={() => setMenuOpen(false)}
+                className="block w-full px-3 py-2.5 rounded-md hover:bg-gray-100"
+              >
+                {l.label}
+              </Link>
+            ))}
             <button
               onClick={() => { setMenuOpen(false); logout(); }}
-              className="mt-2 px-3 py-2 rounded bg-red-500 text-white hover:bg-red-600 transition"
+              className="mt-1 px-3 py-2.5 rounded bg-red-500 text-white hover:bg-red-600 transition"
             >
               Logout
             </button>

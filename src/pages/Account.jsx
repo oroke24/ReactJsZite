@@ -163,7 +163,8 @@ export default function Account() {
     <div className="p-6">
       <h1 className="text-2xl font-bold mb-4">Account</h1>
 
-      <section className="mb-6">
+      <div className="space-y-6">
+      <section>
         <div
           className="flex items-center justify-between bg-white p-4 rounded shadow cursor-pointer"
           onClick={() => setShowUserSection((v) => !v)}
@@ -198,21 +199,8 @@ export default function Account() {
 
       
 
-      <section>
-        <div className="flex items-center justify-between bg-white p-4 rounded shadow">
-          <h2 className="text-xl font-semibold">Business</h2>
-          <span className="text-blue-600">Moved</span>
-        </div>
-        <div className="mt-2 bg-white p-4 rounded shadow text-sm">
-          Business settings are now managed in the Dashboard. Use the Business panel there to update your store’s name, description, images, and colors.
-          <div className="mt-3">
-            <a href="/dashboard" className="text-blue-600 underline">Go to Dashboard →</a>
-          </div>
-        </div>
-      </section>
-
       {/* Landing page / public storefront link and custom address */}
-      <section className="mt-6">
+      <section>
         <div
           className="flex items-center justify-between bg-white p-4 rounded shadow cursor-pointer"
           onClick={() => setShowLandingSection((v) => !v)}
@@ -377,7 +365,7 @@ export default function Account() {
       </section>
 
       {/* Stripe Payments setup (moved below Landing page) */}
-      <section className="mt-6">
+      <section>
         <div
           className="flex items-center justify-between bg-white p-4 rounded shadow cursor-pointer"
           onClick={() => setShowPaymentsSection((v) => !v)}
@@ -511,6 +499,23 @@ export default function Account() {
           </div>
         )}
       </section>
+      
+
+      {/* Business moved notice placed at the bottom */}
+      <section>
+        <div className="flex items-center justify-between bg-white p-4 rounded shadow">
+          <h2 className="text-xl font-semibold">Business</h2>
+          <span className="text-blue-600">Moved</span>
+        </div>
+        <div className="mt-2 bg-white p-4 rounded shadow text-sm">
+          Business settings are now managed in the Dashboard. Use the Business panel there to update your store’s name, description, images, and colors.
+          <div className="mt-3">
+            <a href="/dashboard" className="text-blue-600 underline">Go to Dashboard →</a>
+          </div>
+        </div>
+      </section>
+
+      </div>
     </div>
     <ContactAdminModal
       isOpen={showContactAdmin}

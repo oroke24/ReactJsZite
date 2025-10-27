@@ -13,8 +13,7 @@ export default function Home() {
                     straightforward builder that won’t drain your wallet.
                 </p>
                 <p className="mt-4">
-                    At most, I’ll earn a few pennies from transactions...
-                    <br />maybe even sneak in a little donate button somewhere 😄
+                    <br />Eventually I'll add donate button somewhere, but thats it.
                 </p>
                 <br />
                 <h1 className="text-4xl md:text-5xl font-bold mb-4 text-center">
