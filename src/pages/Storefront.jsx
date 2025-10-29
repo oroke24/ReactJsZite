@@ -102,8 +102,8 @@ export default function Storefront() {
           )}
 
           <header className="px-6 pt-6 mb-6 text-center">
-            <h1 className="text-3xl font-bold mb-3" style={{ color: business?.textColor || undefined }}>{business.name}</h1>
-            <p className="max-w-3xl mx-auto" style={{ color: business?.textColor || undefined }}>{business.description}</p>
+            <h1 className="text-5xl font-bold mb-3" style={{ color: business?.textColor || undefined }}>{business.name}</h1>
+            <p className="text-3xl max-w-3xl mx-auto" style={{ color: business?.textColor || undefined }}>{business.description}</p>
           </header>
 
           {/* Group by Collection: each collection shows its Items */}
